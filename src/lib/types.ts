@@ -48,7 +48,7 @@ export type Booking = {
   created_at: string;
 };
 
-export const ACTIVITIES = ["Café chat", "Walk", "Movie", "Temple visit", "Other"] as const;
+export const ACTIVITIES = ["Café chat", "Walk", "Movie", "Temple visit", "Nandi Hills", "Church", "Other"] as const;
 
 export const BOOKING_STATUSES: BookingStatus[] = [
   "New",

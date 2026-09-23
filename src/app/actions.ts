@@ -3,6 +3,7 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { validateBookingInput, normalizeIndianMobile } from "@/lib/validation";
 import { sendBookingAlertEmail } from "@/lib/email";
+import { sendBookingAlertWhatsApp } from "@/lib/whatsapp";
 
 export type SubmitBookingResult = { ok: true } | { ok: false; message: string };
 
@@ -84,7 +85,7 @@ export async function submitBooking(formData: FormData): Promise<SubmitBookingRe
     return { ok: false, message: "Something went wrong on our end. Please try again or WhatsApp us." };
   }
 
-  await sendBookingAlertEmail({
+  const alertPayload = {
     fullName,
     whatsapp,
     companion: companionName,
@@ -92,7 +93,12 @@ export async function submitBooking(formData: FormData): Promise<SubmitBookingRe
     preferredDate,
     preferredTime,
     area,
-  });
+  };
+
+  await Promise.all([
+    sendBookingAlertEmail(alertPayload),
+    sendBookingAlertWhatsApp(alertPayload),
+  ]);
 
   return { ok: true };
 }
