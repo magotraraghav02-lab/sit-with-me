@@ -4,6 +4,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { validateBookingInput, normalizeIndianMobile } from "@/lib/validation";
 import { sendBookingAlertEmail } from "@/lib/email";
 import { sendBookingAlertWhatsApp } from "@/lib/whatsapp";
+import { sendBookingAlertTelegram } from "@/lib/telegram";
 
 export type SubmitBookingResult = { ok: true } | { ok: false; message: string };
 
@@ -98,6 +99,7 @@ export async function submitBooking(formData: FormData): Promise<SubmitBookingRe
   await Promise.all([
     sendBookingAlertEmail(alertPayload),
     sendBookingAlertWhatsApp(alertPayload),
+    sendBookingAlertTelegram(alertPayload),
   ]);
 
   return { ok: true };
