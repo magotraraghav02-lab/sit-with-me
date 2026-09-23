@@ -24,7 +24,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <div className="flex min-h-screen items-center justify-center bg-sand px-5 text-center">
         <div className="card max-w-sm p-8">
           <p className="mb-4 text-ink">
-            Your account ({user.email}) is signed in but isn't authorized as an admin.
+            Your account ({user.email}) is signed in but isn&apos;t authorized as an admin.
           </p>
           <SignOutButton />
         </div>

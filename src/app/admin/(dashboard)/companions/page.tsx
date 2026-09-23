@@ -31,6 +31,7 @@ export default function AdminCompanionsPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadCompanions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

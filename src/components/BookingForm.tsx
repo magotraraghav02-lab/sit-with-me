@@ -21,11 +21,7 @@ export default function BookingForm({ companions }: { companions: Companion[] })
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<"idle" | "success" | "error">("idle");
   const [resultMessage, setResultMessage] = useState("");
-  const [renderedAt, setRenderedAt] = useState<number>(0);
-
-  useEffect(() => {
-    setRenderedAt(Date.now());
-  }, []);
+  const [renderedAt] = useState<number>(() => Date.now());
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -88,12 +84,12 @@ export default function BookingForm({ companions }: { companions: Companion[] })
     <section id="booking" className="bg-cream scroll-mt-6">
       <div className="section">
         <h2 className="mb-2 text-center text-3xl font-semibold text-ink">Book a meetup</h2>
-        <p className="mb-8 text-center text-muted">We'll WhatsApp you within 2 hours.</p>
+        <p className="mb-8 text-center text-muted">We&apos;ll WhatsApp you within 2 hours.</p>
 
         {result === "success" ? (
           <div className="card mx-auto max-w-md p-8 text-center">
             <p className="text-lg font-medium text-forest">
-              Thanks! We'll WhatsApp you within 2 hours.
+              Thanks! We&apos;ll WhatsApp you within 2 hours.
             </p>
           </div>
         ) : (
@@ -238,7 +234,7 @@ export default function BookingForm({ companions }: { companions: Companion[] })
 
             <div>
               <label className="label" htmlFor="notes">
-                Anything you'd like us to know? (optional)
+                Anything you&apos;d like us to know? (optional)
               </label>
               <textarea
                 id="notes"

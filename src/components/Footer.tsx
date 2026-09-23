@@ -12,7 +12,7 @@ export default function Footer() {
         </a>
         <p>We only use your details to arrange your meetup and never share them.</p>
         <p className="text-cream/50">
-          If you're in crisis or thinking of harming yourself, please call Tele-MANAS at{" "}
+          If you&apos;re in crisis or thinking of harming yourself, please call Tele-MANAS at{" "}
           <a href="tel:14416" className="underline">
             14416
           </a>{" "}
