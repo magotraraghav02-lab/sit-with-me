@@ -168,10 +168,6 @@ body {
   animation: breathe-glow 2.6s ease-in-out infinite;
 }
 
-.badge-shimmer {
-  position: relative;
-}
-
 .badge-shimmer::after {
   content: "";
   position: absolute;
