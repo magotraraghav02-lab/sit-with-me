@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Companion, PricingPlan } from "@/lib/types";
+import Header from "@/components/Header";
+import FadeInSection from "@/components/FadeInSection";
+import RippleLayer from "@/components/RippleLayer";
 import Hero from "@/components/Hero";
 import CompanionsSection from "@/components/CompanionsSection";
 import HowItWorks from "@/components/HowItWorks";
@@ -30,17 +33,39 @@ export default async function HomePage() {
   ]);
 
   return (
-    <main>
-      <Hero />
-      <CompanionsSection companions={(companions as Companion[]) ?? []} />
-      <HowItWorks />
-      <Pricing plans={(plans as PricingPlan[]) ?? []} />
-      <DoDont />
-      <Safety />
-      <BookingForm companions={(companions as Companion[]) ?? []} />
-      <FAQ />
-      <WhatsAppButton />
-      <Footer />
-    </main>
+    <>
+      <RippleLayer />
+      <Header />
+      <main>
+        <FadeInSection>
+          <Hero />
+        </FadeInSection>
+        <FadeInSection>
+          <CompanionsSection companions={(companions as Companion[]) ?? []} />
+        </FadeInSection>
+        <FadeInSection>
+          <HowItWorks />
+        </FadeInSection>
+        <FadeInSection>
+          <Pricing plans={(plans as PricingPlan[]) ?? []} />
+        </FadeInSection>
+        <FadeInSection>
+          <DoDont />
+        </FadeInSection>
+        <FadeInSection>
+          <Safety />
+        </FadeInSection>
+        <FadeInSection>
+          <BookingForm companions={(companions as Companion[]) ?? []} />
+        </FadeInSection>
+        <FadeInSection>
+          <FAQ />
+        </FadeInSection>
+        <WhatsAppButton />
+        <FadeInSection>
+          <Footer />
+        </FadeInSection>
+      </main>
+    </>
   );
 }

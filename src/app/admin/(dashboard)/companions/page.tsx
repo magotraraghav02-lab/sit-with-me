@@ -99,6 +99,14 @@ export default function AdminCompanionsPage() {
     loadCompanions();
   }
 
+  async function toggleAvailableToday(c: Companion) {
+    await supabase
+      .from("companions")
+      .update({ available_today: !c.available_today })
+      .eq("id", c.id);
+    loadCompanions();
+  }
+
   return (
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
       <div>
@@ -128,6 +136,14 @@ export default function AdminCompanionsPage() {
                   }`}
                 >
                   {c.visible ? "Visible" : "Hidden"}
+                </button>
+                <button
+                  onClick={() => toggleAvailableToday(c)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium ${
+                    c.available_today ? "bg-green-100 text-green-700" : "bg-black/5 text-muted"
+                  }`}
+                >
+                  {c.available_today ? "Available today" : "Not available"}
                 </button>
                 <button onClick={() => startEdit(c)} className="text-sm text-forest hover:underline">
                   Edit

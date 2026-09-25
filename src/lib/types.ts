@@ -7,6 +7,7 @@ export type Companion = {
   favorites: string;
   photo_url: string | null;
   visible: boolean;
+  available_today: boolean;
   sort_order: number;
   created_at: string;
 };

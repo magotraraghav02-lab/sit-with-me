@@ -13,8 +13,8 @@ export default function CompanionsSection({ companions }: { companions: Companio
           <p className="text-center text-muted">Companions will be listed here shortly.</p>
         ) : (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            {companions.map((companion) => (
-              <CompanionCard key={companion.id} companion={companion} />
+            {companions.map((companion, index) => (
+              <CompanionCard key={companion.id} companion={companion} index={index} />
             ))}
           </div>
         )}

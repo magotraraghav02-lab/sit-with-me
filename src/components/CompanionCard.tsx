@@ -1,9 +1,26 @@
+"use client";
+
 import Image from "next/image";
+import { motion, useReducedMotion } from "framer-motion";
 import type { Companion } from "@/lib/types";
 
-export default function CompanionCard({ companion }: { companion: Companion }) {
+export default function CompanionCard({
+  companion,
+  index = 0,
+}: {
+  companion: Companion;
+  index?: number;
+}) {
+  const reduceMotion = useReducedMotion();
+
   return (
-    <div className="card flex flex-col overflow-hidden">
+    <motion.div
+      initial={reduceMotion ? undefined : { opacity: 0, scale: 0.92, y: 16 }}
+      whileInView={reduceMotion ? undefined : { opacity: 1, scale: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      transition={{ duration: 0.5, delay: index * 0.08, ease: [0.22, 1, 0.36, 1] }}
+      className="card flex flex-col overflow-hidden transition-transform duration-200 hover:-translate-y-1 hover:shadow-md active:scale-[0.99]"
+    >
       <div className="relative aspect-[4/3] w-full bg-sand">
         {companion.photo_url ? (
           <Image
@@ -15,6 +32,15 @@ export default function CompanionCard({ companion }: { companion: Companion }) {
           />
         ) : (
           <div className="flex h-full items-center justify-center text-muted">No photo yet</div>
+        )}
+        {companion.available_today && (
+          <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-xs font-medium text-forest shadow-sm backdrop-blur-sm">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+            </span>
+            Available today
+          </div>
         )}
       </div>
       <div className="flex flex-1 flex-col p-5">
@@ -37,6 +63,6 @@ export default function CompanionCard({ companion }: { companion: Companion }) {
           Book with {companion.first_name}
         </a>
       </div>
-    </div>
+    </motion.div>
   );
 }
