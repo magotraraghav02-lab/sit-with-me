@@ -61,10 +61,19 @@ export default function CompanionCard({
           </p>
         )}
         <a
-          href={`#booking?companion=${companion.id}`}
+          href="#pricing"
           data-companion-id={companion.id}
           data-companion-name={companion.first_name}
           className="book-with-link btn-secondary mt-auto"
+          onClick={(e) => {
+            e.preventDefault();
+            try {
+              sessionStorage.setItem("sw_requested_companion", companion.first_name);
+            } catch {
+              // sessionStorage can be unavailable (private mode, etc.) -- non-fatal
+            }
+            document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
+          }}
         >
           Book with {companion.first_name}
         </a>

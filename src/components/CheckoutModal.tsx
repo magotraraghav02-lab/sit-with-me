@@ -48,7 +48,21 @@ export default function CheckoutModal({
   const [whatsapp, setWhatsapp] = useState("");
   const [email, setEmail] = useState("");
   const [area, setArea] = useState(zones[0]?.area_name ?? "");
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(() => {
+    // If they clicked "Book with <name>" on a companion card, carry that name
+    // in as a starting note -- the paid checkout flow has no companion picker
+    // of its own, so this is how admin learns who was requested.
+    try {
+      const requested = sessionStorage.getItem("sw_requested_companion");
+      if (requested) {
+        sessionStorage.removeItem("sw_requested_companion");
+        return `Requested companion: ${requested}`;
+      }
+    } catch {
+      // sessionStorage can be unavailable (private mode, SSR, etc.) -- non-fatal
+    }
+    return "";
+  });
   const [couponCode, setCouponCode] = useState("");
   const [isAdult, setIsAdult] = useState(false);
   const [agreedPolicy, setAgreedPolicy] = useState(false);

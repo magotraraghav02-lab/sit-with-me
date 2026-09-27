@@ -9,7 +9,6 @@ import HowItWorks from "@/components/HowItWorks";
 import Pricing from "@/components/Pricing";
 import DoDont from "@/components/DoDont";
 import Safety from "@/components/Safety";
-import BookingForm from "@/components/BookingForm";
 import FAQ from "@/components/FAQ";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import Footer from "@/components/Footer";
@@ -59,9 +58,6 @@ export default async function HomePage() {
         </FadeInSection>
         <FadeInSection>
           <Safety />
-        </FadeInSection>
-        <FadeInSection>
-          <BookingForm companions={(companions as Companion[]) ?? []} />
         </FadeInSection>
         <FadeInSection>
           <FAQ />
