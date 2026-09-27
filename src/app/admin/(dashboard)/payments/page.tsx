@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toCsv, downloadCsv } from "@/lib/csv";
 import { PAYMENT_STATUSES, type PaymentBooking } from "@/lib/types";
 import PaymentRow from "@/components/admin/PaymentRow";
+import QuickPaymentLinkForm from "@/components/admin/QuickPaymentLinkForm";
 import { markAbandonedBookings } from "@/app/payment-actions";
 
 export default function AdminPaymentsPage() {
@@ -100,6 +101,8 @@ export default function AdminPaymentsPage() {
 
   return (
     <div>
+      <QuickPaymentLinkForm />
+
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard label="Revenue today" value={`₹${stats.revenueToday.toLocaleString("en-IN")}`} />
         <StatCard label="Revenue this week" value={`₹${stats.revenueWeek.toLocaleString("en-IN")}`} />

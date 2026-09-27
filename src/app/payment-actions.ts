@@ -294,7 +294,7 @@ export async function verifyCheckoutPayment(
 
   await Promise.all([
     sendPaymentConfirmationEmail({
-      toEmail: finalBooking.email,
+      toEmail: finalBooking.email ?? "",
       fullName: finalBooking.full_name,
       bookingId: finalBooking.id,
       serviceTitle: finalBooking.pricing_title_snapshot,
@@ -383,6 +383,122 @@ export async function refundPayment(input: RefundInput): Promise<RefundResult> {
     return { ok: true, booking: updated ?? { ...booking, status: "Refunded" } };
   } catch {
     return { ok: false, message: "Refund failed. Please try again or check Razorpay dashboard." };
+  }
+}
+
+export type CreateManualLinkInput = {
+  fullName: string;
+  whatsapp: string;
+  email: string;
+  serviceTitle: string;
+  amountInr: number;
+  notes: string;
+};
+
+export type CreateManualLinkResult =
+  | {
+      ok: true;
+      bookingId: string;
+      shortUrl: string;
+      whatsapp: string;
+      customerName: string;
+      serviceTitle: string;
+      amountInr: number;
+    }
+  | { ok: false; message: string };
+
+// Admin-only bridge: manually creates a booking row + a standalone Razorpay
+// Payment Link, for use while the on-site Orders checkout isn't yet approved
+// for live payments. Once the payment_link.paid webhook fires, this booking
+// behaves exactly like a normal paid booking -- same refund button, same
+// revenue stats, same confirmation email.
+export async function createManualPaymentLink(
+  input: CreateManualLinkInput,
+): Promise<CreateManualLinkResult> {
+  const auth = await requireAdmin();
+  if (!auth.ok) return auth;
+
+  if (!input.fullName || input.fullName.trim().length < 2) {
+    return { ok: false, message: "Enter the customer's name." };
+  }
+  if (!isValidIndianMobile(input.whatsapp)) {
+    return { ok: false, message: "Enter a valid 10-digit Indian mobile number." };
+  }
+  if (input.email && !EMAIL_RE.test(input.email)) {
+    return { ok: false, message: "That email address doesn't look right." };
+  }
+  if (!input.serviceTitle || input.serviceTitle.trim().length < 2) {
+    return { ok: false, message: "Enter what this payment is for." };
+  }
+  const amountInr = Math.round(Number(input.amountInr));
+  if (!Number.isFinite(amountInr) || amountInr < 1) {
+    return { ok: false, message: "Enter a valid amount." };
+  }
+
+  const whatsapp = normalizeIndianMobile(input.whatsapp);
+  const email = input.email?.trim() || null;
+  const db = createServiceRoleClient();
+
+  const { data: booking, error: insertError } = await db
+    .from("payment_bookings")
+    .insert({
+      full_name: input.fullName.trim(),
+      whatsapp,
+      email,
+      pricing_id: null,
+      pricing_title_snapshot: input.serviceTitle.trim(),
+      base_amount_inr: amountInr,
+      area: "-",
+      travel_fee_inr: 0,
+      coupon_code: null,
+      coupon_discount_inr: 0,
+      total_amount_inr: amountInr,
+      currency: PAYMENT_CURRENCY,
+      notes: input.notes?.trim() || null,
+      is_adult: true,
+      agreed_policy: true,
+      status: "Pending",
+    })
+    .select("*")
+    .single();
+
+  if (insertError || !booking) {
+    return { ok: false, message: "Couldn't save this booking. Please try again." };
+  }
+
+  try {
+    const link = await paymentProvider.createPaymentLink({
+      amountInPaise: rupeesToPaise(amountInr),
+      currency: PAYMENT_CURRENCY,
+      referenceId: booking.id,
+      description: `SIT WITH ME - ${input.serviceTitle.trim()}`,
+      customer: {
+        name: input.fullName.trim(),
+        contact: `+91${whatsapp}`,
+        email: email ?? undefined,
+      },
+      notes: { booking_id: booking.id },
+    });
+
+    await db
+      .from("payment_bookings")
+      .update({
+        razorpay_payment_link_id: link.paymentLinkId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", booking.id);
+
+    return {
+      ok: true,
+      bookingId: booking.id,
+      shortUrl: link.shortUrl,
+      whatsapp,
+      customerName: input.fullName.trim(),
+      serviceTitle: input.serviceTitle.trim(),
+      amountInr,
+    };
+  } catch {
+    return { ok: false, message: "Couldn't reach Razorpay to create the link. Please try again." };
   }
 }
 

@@ -7,6 +7,8 @@ import type {
   VerifyPaymentParams,
   RefundParams,
   RefundResult,
+  CreatePaymentLinkParams,
+  CreatePaymentLinkResult,
 } from "./types";
 
 function getClient(): Razorpay {
@@ -71,6 +73,26 @@ class RazorpayProvider implements PaymentProvider {
       amountInPaise: refundedAmount,
       status: refund.status ?? "processed",
     };
+  }
+
+  async createPaymentLink(
+    params: CreatePaymentLinkParams,
+  ): Promise<CreatePaymentLinkResult> {
+    const client = getClient();
+    const link = await client.paymentLink.create({
+      amount: params.amountInPaise,
+      currency: params.currency,
+      description: params.description,
+      reference_id: params.referenceId,
+      customer: {
+        name: params.customer.name,
+        contact: params.customer.contact,
+        email: params.customer.email,
+      },
+      notify: { sms: true, email: Boolean(params.customer.email) },
+      notes: params.notes,
+    });
+    return { paymentLinkId: link.id, shortUrl: link.short_url };
   }
 }
 

@@ -189,7 +189,7 @@ create table if not exists payment_bookings (
   id uuid primary key default gen_random_uuid(),
   full_name text not null,
   whatsapp text not null,
-  email text not null,
+  email text,
   pricing_id uuid references pricing(id) on delete set null,
   pricing_title_snapshot text not null,
   base_amount_inr int not null,
@@ -209,6 +209,7 @@ create table if not exists payment_bookings (
   razorpay_signature text,
   razorpay_refund_id text,
   refund_amount_inr int,
+  razorpay_payment_link_id text unique,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -216,6 +217,7 @@ create table if not exists payment_bookings (
 create index if not exists payment_bookings_created_at_idx on payment_bookings (created_at desc);
 create index if not exists payment_bookings_status_idx on payment_bookings (status);
 create index if not exists payment_bookings_order_id_idx on payment_bookings (razorpay_order_id);
+create index if not exists payment_bookings_payment_link_id_idx on payment_bookings (razorpay_payment_link_id);
 
 create table if not exists razorpay_webhook_events (
   id text primary key,

@@ -17,6 +17,7 @@ type RazorpayWebhookPayload = {
   payload?: {
     payment?: { entity?: Record<string, unknown> };
     refund?: { entity?: Record<string, unknown> };
+    payment_link?: { entity?: Record<string, unknown> };
   };
 };
 
@@ -56,6 +57,12 @@ export async function POST(request: NextRequest) {
       await handlePaymentFailed(db, payload.payload?.payment?.entity);
     } else if (eventType === "refund.processed") {
       await handleRefundProcessed(db, payload.payload?.refund?.entity);
+    } else if (eventType === "payment_link.paid") {
+      await handlePaymentLinkPaid(
+        db,
+        payload.payload?.payment_link?.entity,
+        payload.payload?.payment?.entity,
+      );
     }
   } catch (err) {
     console.error("razorpay webhook handler error", eventType, err);
@@ -114,7 +121,70 @@ async function handlePaymentCaptured(
 
   await Promise.all([
     sendPaymentConfirmationEmail({
-      toEmail: finalBooking.email,
+      toEmail: finalBooking.email ?? "",
+      fullName: finalBooking.full_name,
+      bookingId: finalBooking.id,
+      serviceTitle: finalBooking.pricing_title_snapshot,
+      totalAmountInr: finalBooking.total_amount_inr,
+      calendlyLink,
+    }),
+    sendPaymentAlertEmail({
+      fullName: finalBooking.full_name,
+      whatsapp: finalBooking.whatsapp,
+      serviceTitle: finalBooking.pricing_title_snapshot,
+      totalAmountInr: finalBooking.total_amount_inr,
+      bookingId: finalBooking.id,
+    }),
+  ]);
+}
+
+async function findBookingByPaymentLinkId(
+  db: SupabaseClient,
+  paymentLinkId: string,
+): Promise<PaymentBooking | null> {
+  const { data } = await db
+    .from("payment_bookings")
+    .select("*")
+    .eq("razorpay_payment_link_id", paymentLinkId)
+    .maybeSingle();
+  return data ?? null;
+}
+
+// Manual "Payment Link" bridge bookings (created from the admin panel while
+// the on-site Orders checkout is pending Razorpay approval) are confirmed
+// here instead of via handlePaymentCaptured, since they have no order_id.
+// Everything downstream (status, refund button, revenue stats, emails) is
+// identical once this fires.
+async function handlePaymentLinkPaid(
+  db: SupabaseClient,
+  linkEntity: Record<string, unknown> | undefined,
+  paymentEntity: Record<string, unknown> | undefined,
+) {
+  const linkId = linkEntity?.id as string | undefined;
+  const paymentId = paymentEntity?.id as string | undefined;
+  if (!linkId) return;
+
+  const booking = await findBookingByPaymentLinkId(db, linkId);
+  if (!booking) return;
+  if (booking.status === "Paid") return;
+
+  const { data: updated } = await db
+    .from("payment_bookings")
+    .update({
+      status: "Paid",
+      razorpay_payment_id: paymentId ?? booking.razorpay_payment_id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", booking.id)
+    .select("*")
+    .single();
+
+  const finalBooking = updated ?? booking;
+  const calendlyLink = await getCalendlyLink(db, finalBooking.pricing_id);
+
+  await Promise.all([
+    sendPaymentConfirmationEmail({
+      toEmail: finalBooking.email ?? "",
       fullName: finalBooking.full_name,
       bookingId: finalBooking.id,
       serviceTitle: finalBooking.pricing_title_snapshot,

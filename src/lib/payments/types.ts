@@ -37,6 +37,21 @@ export type RefundResult = {
   status: string;
 };
 
+export type CreatePaymentLinkParams = {
+  amountInPaise: number;
+  currency: string;
+  /** Our own booking id -- passed back in the payment_link.paid webhook's notes. */
+  referenceId: string;
+  description: string;
+  customer: { name: string; contact: string; email?: string };
+  notes?: Record<string, string>;
+};
+
+export type CreatePaymentLinkResult = {
+  paymentLinkId: string;
+  shortUrl: string;
+};
+
 export interface PaymentProvider {
   /** Human-readable name shown in admin/logs, e.g. "Razorpay". */
   readonly name: string;
@@ -50,4 +65,8 @@ export interface PaymentProvider {
   verifyWebhookSignature(rawBody: string, signature: string): boolean;
 
   refund(params: RefundParams): Promise<RefundResult>;
+
+  /** Creates a standalone, shareable Razorpay Payment Link (used for the
+   * manual WhatsApp bridge flow, separate from the on-site Orders checkout). */
+  createPaymentLink(params: CreatePaymentLinkParams): Promise<CreatePaymentLinkResult>;
 }

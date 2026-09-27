@@ -45,7 +45,7 @@ export async function sendBookingAlertEmail(params: {
 // ---- Phase 2: Razorpay pay-first booking flow ----
 
 export async function sendPaymentConfirmationEmail(params: {
-  toEmail: string;
+  toEmail: string | null;
   fullName: string;
   bookingId: string;
   serviceTitle: string;

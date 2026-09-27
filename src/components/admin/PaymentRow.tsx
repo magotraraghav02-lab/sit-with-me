@@ -89,7 +89,7 @@ export default function PaymentRow({
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wide text-muted">Email</p>
-                <p className="text-ink">{booking.email}</p>
+                <p className="text-ink">{booking.email ?? "\u2014"}</p>
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wide text-muted">Area</p>

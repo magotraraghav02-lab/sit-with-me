@@ -96,7 +96,7 @@ export type PaymentBooking = {
   id: string;
   full_name: string;
   whatsapp: string;
-  email: string;
+  email: string | null;
   pricing_id: string | null;
   pricing_title_snapshot: string;
   base_amount_inr: number;
@@ -115,6 +115,7 @@ export type PaymentBooking = {
   razorpay_signature: string | null;
   razorpay_refund_id: string | null;
   refund_amount_inr: number | null;
+  razorpay_payment_link_id: string | null;
   created_at: string;
   updated_at: string;
 };

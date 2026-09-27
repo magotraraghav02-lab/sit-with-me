@@ -29,4 +29,6 @@ export type {
   VerifyPaymentParams,
   RefundParams,
   RefundResult,
+  CreatePaymentLinkParams,
+  CreatePaymentLinkResult,
 } from "./types";
