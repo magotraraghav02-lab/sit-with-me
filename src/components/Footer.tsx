@@ -1,4 +1,4 @@
-const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "919310891615";
+const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "919622323171";
 
 export default function Footer() {
   const whatsappMessage = encodeURIComponent(

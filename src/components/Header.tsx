@@ -23,7 +23,7 @@ export default function Header() {
 
   function handleBookClick(e: React.MouseEvent<HTMLAnchorElement>) {
     e.preventDefault();
-    document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" });
+    document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" });
   }
 
   return (
@@ -44,7 +44,7 @@ export default function Header() {
           <a href="#top" className="text-base font-semibold tracking-tight text-ink">
             SIT WITH ME
           </a>
-          <a href="#booking" onClick={handleBookClick} className="btn-primary px-5 py-2 text-sm">
+          <a href="#pricing" onClick={handleBookClick} className="btn-primary px-5 py-2 text-sm">
             Book a meetup
           </a>
         </div>

@@ -3,7 +3,7 @@ const FLOATERS = [
   { emoji: "🌳", top: "70%", left: "10%", delay: "1.2s", size: "text-4xl" },
   { emoji: "🎬", top: "16%", left: "86%", delay: "2.4s", size: "text-3xl" },
   { emoji: "🛕", top: "74%", left: "88%", delay: "0.6s", size: "text-3xl" },
-  { emoji: "💬", top: "44%", left: "50%", delay: "1.8s", size: "text-2xl" },
+  { emoji: "🏃", top: "44%", left: "50%", delay: "1.8s", size: "text-2xl" },
 ];
 
 export default function Hero() {
@@ -30,10 +30,11 @@ export default function Hero() {
           No judgment.
         </h1>
         <p className="mx-auto mt-5 max-w-xl text-lg text-muted">
-          Coffee, walks, movies, temple visits — real company in Bangalore.
+          Coffee, walks, movies, temple visits, runs, gym sessions — real company in Bangalore,
+          for whatever you&apos;re up for.
         </p>
-        <a href="#booking" className="btn-primary btn-glow mt-8">
-          Book a meetup
+        <a href="#pricing" className="btn-primary btn-glow mt-8">
+          See pricing &amp; book
         </a>
       </div>
     </section>

@@ -4,7 +4,7 @@ import PolicyPage from "@/components/PolicyPage";
 export const metadata: Metadata = { title: "Contact Us — SIT WITH ME" };
 
 const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "hello@sitwithme.in";
-const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "919310891615";
+const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "919622323171";
 
 export default function ContactPage() {
   return (
