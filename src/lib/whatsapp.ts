@@ -1,6 +1,7 @@
 // Sends a bilingual (Hindi + English) WhatsApp alert to the admin numbers whenever
-// a new booking comes in. Uses CallMeBot (https://www.callmebot.com/blog/free-api-whatsapp-messages/),
-// a free personal WhatsApp notification API - no business account needed.
+// a new booking REQUEST comes in (before any payment). Uses CallMeBot
+// (https://www.callmebot.com/blog/free-api-whatsapp-messages/), a free personal
+// WhatsApp notification API - no business account needed.
 //
 // One-time setup per phone number (only needs to be done once, ever):
 //   1. Save +34 644 51 71 92 as a contact on that WhatsApp number's phone.
@@ -18,28 +19,26 @@ const RECIPIENTS: Recipient[] = [
   { phone: "919310891615", apiKeyEnv: "CALLMEBOT_APIKEY_2" },
 ];
 
-export async function sendBookingAlertWhatsApp(params: {
+export async function sendBookingRequestAlertWhatsApp(params: {
   fullName: string;
   whatsapp: string;
-  companion: string;
-  activity: string;
-  preferredDate: string;
-  preferredTime: string;
+  serviceTitle: string;
+  totalAmountInr: number;
   area: string;
+  companionName: string | null;
 }) {
   const message = [
-    "🔔 New Booking / नई बुकिंग",
+    "🔔 New Booking Request / नई बुकिंग रिक्वेस्ट",
     "",
     `Name / नाम: ${params.fullName}`,
     `WhatsApp: ${params.whatsapp}`,
-    `Companion / साथी: ${params.companion}`,
-    `Activity / एक्टिविटी: ${params.activity}`,
-    `Date / तारीख: ${params.preferredDate}`,
-    `Time / समय: ${params.preferredTime}`,
+    `Service / सेवा: ${params.serviceTitle}`,
+    `Amount due / राशि: ₹${params.totalAmountInr}`,
     `Area / एरिया: ${params.area}`,
+    `Companion / साथी: ${params.companionName ?? "No preference / कोई प्राथमिकता नहीं"}`,
     "",
-    "Open the admin panel to view full details and respond.",
-    "पूरी जानकारी और जवाब देने के लिए एडमिन पैनल खोलें।",
+    "Open the admin panel to send a payment link.",
+    "पेमेंट लिंक भेजने के लिए एडमिन पैनल खोलें।",
   ].join("\n");
 
   const sends = RECIPIENTS.map(async ({ phone, apiKeyEnv }) => {

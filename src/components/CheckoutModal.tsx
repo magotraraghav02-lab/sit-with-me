@@ -1,26 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { isValidIndianMobile, normalizeIndianMobile } from "@/lib/validation";
-import {
-  getCheckoutQuote,
-  createCheckoutOrder,
-  verifyCheckoutPayment,
-} from "@/app/payment-actions";
+import { isValidIndianMobile } from "@/lib/validation";
+import { getCheckoutQuote, submitBookingRequest } from "@/app/payment-actions";
 import type { PricingPlan, Zone } from "@/lib/types";
-
-declare global {
-  interface Window {
-    Razorpay?: new (options: Record<string, unknown>) => {
-      open: () => void;
-      on: (event: string, handler: (response: unknown) => void) => void;
-    };
-  }
-}
 
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "919622323171";
 
-type Step = "form" | "submitting" | "success" | "failed";
+type Step = "form" | "submitting" | "success";
 
 type Quote = {
   baseAmountInr: number;
@@ -48,20 +35,20 @@ export default function CheckoutModal({
   const [whatsapp, setWhatsapp] = useState("");
   const [email, setEmail] = useState("");
   const [area, setArea] = useState(zones[0]?.area_name ?? "");
-  const [notes, setNotes] = useState(() => {
+  const [notes, setNotes] = useState("");
+  const [companionName] = useState(() => {
     // If they clicked "Book with <name>" on a companion card, carry that name
-    // in as a starting note -- the paid checkout flow has no companion picker
-    // of its own, so this is how admin learns who was requested.
+    // through so we can confirm it here and pass it along to admin.
     try {
       const requested = sessionStorage.getItem("sw_requested_companion");
       if (requested) {
         sessionStorage.removeItem("sw_requested_companion");
-        return `Requested companion: ${requested}`;
+        return requested;
       }
     } catch {
       // sessionStorage can be unavailable (private mode, SSR, etc.) -- non-fatal
     }
-    return "";
+    return null;
   });
   const [couponCode, setCouponCode] = useState("");
   const [isAdult, setIsAdult] = useState(false);
@@ -70,9 +57,9 @@ export default function CheckoutModal({
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [failMessage, setFailMessage] = useState("");
   const [successBooking, setSuccessBooking] = useState<{
     bookingId: string;
+    whatsapp: string;
     totalAmountInr: number;
   } | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -103,7 +90,9 @@ export default function CheckoutModal({
     const next: FormErrors = {};
     if (!fullName || fullName.trim().length < 2) next.fullName = "Please enter your full name.";
     if (!isValidIndianMobile(whatsapp)) next.whatsapp = "Enter a valid 10-digit Indian mobile number.";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) next.email = "Enter a valid email address.";
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      next.email = "Enter a valid email address, or leave it blank.";
+    }
     if (!area) next.area = "Please select your area.";
     if (!isAdult || !agreedPolicy) next.consent = "Both checkboxes are required.";
     return next;
@@ -119,82 +108,36 @@ export default function CheckoutModal({
     setFormError(null);
     setStep("submitting");
 
-    const order = await createCheckoutOrder({
+    const result = await submitBookingRequest({
       pricingId: plan.id,
       fullName,
       whatsapp,
       email,
       area,
       notes,
+      companionName,
       couponCode: couponCode.trim() || null,
       isAdult,
       agreedPolicy,
     });
 
-    if (!order.ok) {
-      setFormError(order.message);
+    if (!result.ok) {
+      setFormError(result.message);
       setStep("form");
       return;
     }
 
-    if (!window.Razorpay) {
-      setFormError("Payment gateway is still loading. Please try again in a moment.");
-      setStep("form");
-      return;
-    }
-
-    const rzp = new window.Razorpay({
-      key: order.keyId,
-      amount: order.amountInPaise,
-      currency: order.currency,
-      name: "SitWithMe",
-      description: plan.title,
-      order_id: order.orderId,
-      prefill: order.prefill,
-      theme: { color: "#E8A33D" },
-      handler: async (response: unknown) => {
-        const r = response as {
-          razorpay_order_id: string;
-          razorpay_payment_id: string;
-          razorpay_signature: string;
-        };
-        const verified = await verifyCheckoutPayment({
-          bookingId: order.bookingId,
-          orderId: r.razorpay_order_id,
-          paymentId: r.razorpay_payment_id,
-          signature: r.razorpay_signature,
-        });
-        if (verified.ok) {
-          setSuccessBooking({
-            bookingId: verified.booking.id,
-            totalAmountInr: verified.booking.total_amount_inr,
-          });
-          setStep("success");
-        } else {
-          setFailMessage(verified.message);
-          setStep("failed");
-        }
-      },
-      modal: {
-        ondismiss: () => {
-          setFailMessage("Payment was cancelled. Your booking is still saved as pending.");
-          setStep("failed");
-        },
-      },
+    setSuccessBooking({
+      bookingId: result.bookingId,
+      whatsapp: result.whatsapp,
+      totalAmountInr: result.totalAmountInr,
     });
-
-    rzp.on("payment.failed", () => {
-      setFailMessage("Payment failed. You can try again with a different method.");
-      setStep("failed");
-    });
-
-    rzp.open();
-    setStep("form");
+    setStep("success");
   }
 
   const whatsappMessage = successBooking
     ? encodeURIComponent(
-        `Hi! I just paid for ${plan.title}. My Booking ID is ${successBooking.bookingId}.`,
+        `Hi! I just requested a booking for ${plan.title}. My Booking ID is ${successBooking.bookingId}.`,
       )
     : "";
 
@@ -207,51 +150,27 @@ export default function CheckoutModal({
         if (e.target === e.currentTarget && step !== "submitting") onClose();
       }}
     >
-      <div className="card max-h-[92vh] w-full max-w-md overflow-y-auto p-6 sm:p-8">
+      <div className="card max-h-[92vh] w-full max-w-md overflow-y-auto p-6 sm:p-8 animate-modal-in">
         {step === "success" && successBooking ? (
           <div className="text-center">
             <p className="text-lg font-medium text-forest">
-              Payment received ✅
+              Request received ✅
               <br />
               Booking ID: {successBooking.bookingId.slice(0, 8).toUpperCase()}
             </p>
             <p className="mt-2 text-sm text-muted">
-              Amount paid: ₹{successBooking.totalAmountInr.toLocaleString("en-IN")}
+              We&apos;ll WhatsApp a secure payment link to {successBooking.whatsapp} shortly to
+              confirm ₹{successBooking.totalAmountInr.toLocaleString("en-IN")}.
             </p>
             <div className="mt-6 space-y-3">
-              {plan.calendly_link ? (
-                <a
-                  href={plan.calendly_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-primary block w-full"
-                >
-                  Pick your slot
-                </a>
-              ) : (
-                <p className="text-sm text-muted">We&apos;ll WhatsApp you shortly to pick a slot.</p>
-              )}
               <a
                 href={`https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMessage}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-secondary block w-full"
+                className="btn-primary block w-full"
               >
-                Message us on WhatsApp
+                Message us on WhatsApp now
               </a>
-              <button onClick={onClose} className="text-sm text-muted underline">
-                Close
-              </button>
-            </div>
-          </div>
-        ) : step === "failed" ? (
-          <div className="text-center">
-            <p className="text-lg font-medium text-ink">Payment not completed</p>
-            <p className="mt-2 text-sm text-muted">{failMessage}</p>
-            <div className="mt-6 space-y-3">
-              <button onClick={() => setStep("form")} className="btn-primary w-full">
-                Try again
-              </button>
               <button onClick={onClose} className="text-sm text-muted underline">
                 Close
               </button>
@@ -263,6 +182,11 @@ export default function CheckoutModal({
               <div>
                 <h3 className="text-lg font-semibold text-ink">Book: {plan.title}</h3>
                 <p className="text-sm text-muted">{plan.duration}</p>
+                {companionName && (
+                  <p className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-forest/10 px-2.5 py-1 text-xs font-medium text-forest">
+                    With {companionName}
+                  </p>
+                )}
               </div>
               <button
                 type="button"
@@ -301,11 +225,14 @@ export default function CheckoutModal({
                 inputMode="numeric"
               />
               {errors.whatsapp && <p className="mt-1 text-sm text-red-600">{errors.whatsapp}</p>}
+              <p className="mt-1 text-xs text-muted">
+                We&apos;ll send your payment link to this number.
+              </p>
             </div>
 
             <div>
               <label className="label" htmlFor="co-email">
-                Email
+                Email (optional)
               </label>
               <input
                 id="co-email"
@@ -426,9 +353,11 @@ export default function CheckoutModal({
               disabled={step === "submitting" || !quote}
               className="btn-primary w-full"
             >
-              {step === "submitting" ? "Opening secure checkout..." : "Pay & confirm booking"}
+              {step === "submitting" ? "Sending request..." : "Send booking request"}
             </button>
-            <p className="text-center text-xs text-muted">🔒 Secure payments by Razorpay</p>
+            <p className="text-center text-xs text-muted">
+              No payment now — we&apos;ll WhatsApp you a secure payment link to confirm.
+            </p>
           </form>
         )}
       </div>

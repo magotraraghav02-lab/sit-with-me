@@ -12,6 +12,20 @@ const STATUS_STYLES: Record<string, string> = {
   Abandoned: "bg-amber/20 text-ink",
 };
 
+// One-click WhatsApp message so a new/pending request gets acknowledged fast,
+// before you've even created their Razorpay payment link. The text opens
+// pre-filled in WhatsApp -- edit it there before hitting send if you like.
+function whatsappMessageFor(booking: PaymentBooking): string {
+  const firstName = booking.full_name.split(" ")[0] || booking.full_name;
+  if (booking.status === "Pending") {
+    return `Hi ${firstName}, thank you for your booking request for ${booking.pricing_title_snapshot} (₹${booking.total_amount_inr})! I'll send you a secure payment link right here on WhatsApp shortly to confirm your slot. Talk soon — Raghav, SIT WITH ME`;
+  }
+  if (booking.status === "Paid") {
+    return `Hi ${firstName}, thank you for your payment for ${booking.pricing_title_snapshot}! Let's lock in a time that works for you — when are you free?`;
+  }
+  return `Hi ${firstName}, following up on your ${booking.pricing_title_snapshot} request with SIT WITH ME.`;
+}
+
 export default function PaymentRow({
   booking,
   onChange,
@@ -70,13 +84,23 @@ export default function PaymentRow({
         <td className="max-w-[140px] truncate px-3 py-3 text-xs text-muted" title={booking.razorpay_payment_id ?? ""}>
           {booking.razorpay_payment_id ?? "—"}
         </td>
-        <td className="px-3 py-3">
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="text-sm text-forest hover:underline"
-          >
-            {expanded ? "Hide" : "Details"}
-          </button>
+        <td className="whitespace-nowrap px-3 py-3">
+          <div className="flex items-center gap-3">
+            <a
+              href={`https://wa.me/91${booking.whatsapp}?text=${encodeURIComponent(whatsappMessageFor(booking))}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-[#128C7E] hover:underline"
+            >
+              WhatsApp
+            </a>
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="text-sm text-forest hover:underline"
+            >
+              {expanded ? "Hide" : "Details"}
+            </button>
+          </div>
         </td>
       </tr>
       {expanded && (

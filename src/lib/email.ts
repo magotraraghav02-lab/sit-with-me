@@ -1,11 +1,16 @@
-export async function sendBookingAlertEmail(params: {
+// ---- Booking request alerts (customer submits a request; no online payment
+// happens here since Razorpay Live keys need business KYC we don't have --
+// see src/app/payment-actions.ts submitBookingRequest for the full context) ----
+
+export async function sendBookingRequestAlertEmail(params: {
+  bookingId: string;
   fullName: string;
   whatsapp: string;
-  companion: string;
-  activity: string;
-  preferredDate: string;
-  preferredTime: string;
+  serviceTitle: string;
+  totalAmountInr: number;
   area: string;
+  companionName: string | null;
+  notes: string | null;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.NOTIFY_EMAIL;
@@ -21,28 +26,74 @@ export async function sendBookingAlertEmail(params: {
       body: JSON.stringify({
         from: "SIT WITH ME <onboarding@resend.dev>",
         to,
-        subject: `New booking: ${params.fullName} — ${params.activity}`,
+        subject: `New booking request: ${params.fullName} — ${params.serviceTitle}`,
         text: [
-          `New booking request received.`,
+          `New booking request received (no payment yet).`,
           ``,
           `Name: ${params.fullName}`,
           `WhatsApp: ${params.whatsapp}`,
-          `Companion: ${params.companion}`,
-          `Activity: ${params.activity}`,
-          `Date: ${params.preferredDate}`,
-          `Time: ${params.preferredTime}`,
+          `Service: ${params.serviceTitle}`,
+          `Amount due: ₹${params.totalAmountInr}`,
           `Area: ${params.area}`,
+          `Companion requested: ${params.companionName ?? "No preference"}`,
+          params.notes ? `Notes: ${params.notes}` : null,
           ``,
-          `Open the admin panel to view full details and respond.`,
+          `Open the admin panel > Payments to send them a WhatsApp message and create their payment link.`,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      }),
+    });
+  } catch {
+    // Best-effort only - a failed email must never block a booking request from saving.
+  }
+}
+
+export async function sendBookingRequestReceivedEmail(params: {
+  toEmail: string | null;
+  fullName: string;
+  bookingId: string;
+  serviceTitle: string;
+  totalAmountInr: number;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !params.toEmail) return;
+
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "SIT WITH ME <onboarding@resend.dev>",
+        to: params.toEmail,
+        subject: `We've got your request - Booking ${params.bookingId.slice(0, 8).toUpperCase()}`,
+        text: [
+          `Hi ${params.fullName},`,
+          ``,
+          `Thanks for your booking request! 🙌`,
+          ``,
+          `Booking ID: ${params.bookingId}`,
+          `Service: ${params.serviceTitle}`,
+          `Amount due: ₹${params.totalAmountInr}`,
+          ``,
+          `We'll WhatsApp you a secure payment link shortly to confirm your slot.`,
+          ``,
+          `Quote your Booking ID if you message us on WhatsApp.`,
+          ``,
+          `- Team SIT WITH ME`,
         ].join("\n"),
       }),
     });
   } catch {
-    // Best-effort only - a failed email must never block a booking from saving.
+    // Best-effort only.
   }
 }
 
-// ---- Phase 2: Razorpay pay-first booking flow ----
+// ---- Payment confirmation (fires once the customer actually pays, via the
+// manual Razorpay Payment Link admin tool + webhook match) ----
 
 export async function sendPaymentConfirmationEmail(params: {
   toEmail: string | null;

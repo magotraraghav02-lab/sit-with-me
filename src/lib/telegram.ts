@@ -1,6 +1,6 @@
 // Sends a bilingual (Hindi + English) Telegram alert to the admins whenever a new
-// booking comes in. Uses the official Telegram Bot API - free, instant, no rate
-// limits worth worrying about.
+// booking REQUEST comes in (before any payment). Uses the official Telegram Bot
+// API - free, instant, no rate limits worth worrying about.
 //
 // One-time setup (only needs to be done once, ever):
 //   1. The bot already exists: t.me/SitWithMe_bot (token below, set as an env var
@@ -13,14 +13,13 @@
 // If the bot token or chat id list is missing, alerts are silently skipped (never
 // blocks a booking from saving), matching the existing email/WhatsApp alert pattern.
 
-export async function sendBookingAlertTelegram(params: {
+export async function sendBookingRequestAlertTelegram(params: {
   fullName: string;
   whatsapp: string;
-  companion: string;
-  activity: string;
-  preferredDate: string;
-  preferredTime: string;
+  serviceTitle: string;
+  totalAmountInr: number;
   area: string;
+  companionName: string | null;
 }) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatIdsRaw = process.env.TELEGRAM_CHAT_IDS;
@@ -33,18 +32,17 @@ export async function sendBookingAlertTelegram(params: {
   if (chatIds.length === 0) return;
 
   const message = [
-    "🔔 New Booking / नई बुकिंग",
+    "🔔 New Booking Request / नई बुकिंग रिक्वेस्ट",
     "",
     `Name / नाम: ${params.fullName}`,
     `WhatsApp: ${params.whatsapp}`,
-    `Companion / साथी: ${params.companion}`,
-    `Activity / एक्टिविटी: ${params.activity}`,
-    `Date / तारीख: ${params.preferredDate}`,
-    `Time / समय: ${params.preferredTime}`,
+    `Service / सेवा: ${params.serviceTitle}`,
+    `Amount due / राशि: ₹${params.totalAmountInr}`,
     `Area / एरिया: ${params.area}`,
+    `Companion / साथी: ${params.companionName ?? "No preference / कोई प्राथमिकता नहीं"}`,
     "",
-    "Open the admin panel to view full details and respond.",
-    "पूरी जानकारी और जवाब देने के लिए एडमिन पैनल खोलें।",
+    "Open the admin panel to send a payment link.",
+    "पेमेंट लिंक भेजने के लिए एडमिन पैनल खोलें।",
   ].join("\n");
 
   const sends = chatIds.map(async (chatId) => {

@@ -3,7 +3,14 @@
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { isValidIndianMobile, normalizeIndianMobile } from "@/lib/validation";
 import { paymentProvider, rupeesToPaise, paiseToRupees, PAYMENT_CURRENCY } from "@/lib/payments";
-import { sendPaymentConfirmationEmail, sendPaymentAlertEmail } from "@/lib/email";
+import {
+  sendPaymentConfirmationEmail,
+  sendPaymentAlertEmail,
+  sendBookingRequestAlertEmail,
+  sendBookingRequestReceivedEmail,
+} from "@/lib/email";
+import { sendBookingRequestAlertWhatsApp } from "@/lib/whatsapp";
+import { sendBookingRequestAlertTelegram } from "@/lib/telegram";
 import type { PaymentBooking, PricingPlan, Zone, Coupon } from "@/lib/types";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -113,53 +120,56 @@ export async function getCheckoutQuote(input: QuoteInput): Promise<QuoteResult> 
   };
 }
 
-export type CreateCheckoutInput = {
+export type SubmitBookingRequestInput = {
   pricingId: string;
   fullName: string;
   whatsapp: string;
   email: string;
   area: string;
   notes: string;
+  companionName: string | null;
   couponCode: string | null;
   isAdult: boolean;
   agreedPolicy: boolean;
 };
 
-export type CreateCheckoutResult =
+export type SubmitBookingRequestResult =
   | {
       ok: true;
       bookingId: string;
-      orderId: string;
-      amountInPaise: number;
-      currency: string;
-      keyId: string;
-      prefill: { name: string; email: string; contact: string };
+      whatsapp: string;
+      fullName: string;
+      serviceTitle: string;
       totalAmountInr: number;
     }
   | { ok: false; message: string };
 
-export async function createCheckoutOrder(
-  input: CreateCheckoutInput,
-): Promise<CreateCheckoutResult> {
+// Customer-facing "submit a booking request" flow. This intentionally never
+// talks to Razorpay: our Individual Razorpay account can't get a live API key
+// without full business KYC documents we don't have, so there's no way to open
+// an in-browser payment popup that could ever take real money. Instead we save
+// a Pending booking (same shape/table as every other booking) and alert the
+// admin on every channel at once so they can reply fast, then send the
+// customer a real, working Razorpay Payment Link by hand -- see
+// createManualPaymentLink below, and the payment_link.paid webhook handler
+// that flips this booking to Paid automatically once they pay.
+export async function submitBookingRequest(
+  input: SubmitBookingRequestInput,
+): Promise<SubmitBookingRequestResult> {
   if (!input.fullName || input.fullName.trim().length < 2) {
     return { ok: false, message: "Please enter your full name." };
   }
   if (!isValidIndianMobile(input.whatsapp)) {
     return { ok: false, message: "Enter a valid 10-digit Indian mobile number." };
   }
-  if (!EMAIL_RE.test(input.email)) {
-    return { ok: false, message: "Enter a valid email address." };
+  if (input.email && !EMAIL_RE.test(input.email)) {
+    return { ok: false, message: "Enter a valid email address, or leave it blank." };
   }
   if (!input.area || input.area.trim().length < 2) {
     return { ok: false, message: "Please select your area." };
   }
   if (!input.isAdult || !input.agreedPolicy) {
     return { ok: false, message: "Both checkboxes are required." };
-  }
-
-  const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-  if (!keyId) {
-    return { ok: false, message: "Payments aren't configured yet. Please try again later." };
   }
 
   const quote = await computeQuote({
@@ -170,6 +180,16 @@ export async function createCheckoutOrder(
   if (!quote.ok) return quote;
 
   const whatsapp = normalizeIndianMobile(input.whatsapp);
+  const email = input.email?.trim() || null;
+  const companionName = input.companionName?.trim() || null;
+  const combinedNotes =
+    [
+      companionName ? `Requested companion: ${companionName}` : null,
+      input.notes?.trim() || null,
+    ]
+      .filter(Boolean)
+      .join(" | ") || null;
+
   const db = createServiceRoleClient();
 
   const { data: booking, error: insertError } = await db
@@ -177,7 +197,7 @@ export async function createCheckoutOrder(
     .insert({
       full_name: input.fullName.trim(),
       whatsapp,
-      email: input.email.trim(),
+      email,
       pricing_id: quote.pricing.id,
       pricing_title_snapshot: quote.pricing.title,
       base_amount_inr: quote.baseAmountInr,
@@ -187,7 +207,7 @@ export async function createCheckoutOrder(
       coupon_discount_inr: quote.couponDiscountInr,
       total_amount_inr: quote.totalAmountInr,
       currency: PAYMENT_CURRENCY,
-      notes: input.notes?.trim() || null,
+      notes: combinedNotes,
       is_adult: input.isAdult,
       agreed_policy: input.agreedPolicy,
       status: "Pending",
@@ -196,121 +216,39 @@ export async function createCheckoutOrder(
     .single();
 
   if (insertError || !booking) {
-    return { ok: false, message: "Couldn't start checkout. Please try again." };
+    return { ok: false, message: "Couldn't save your request. Please try again." };
   }
 
-  try {
-    const order = await paymentProvider.createOrder({
-      amountInPaise: rupeesToPaise(quote.totalAmountInr),
-      currency: PAYMENT_CURRENCY,
-      receipt: booking.id,
-      notes: { booking_id: booking.id },
-    });
-
-    await db
-      .from("payment_bookings")
-      .update({ razorpay_order_id: order.orderId, updated_at: new Date().toISOString() })
-      .eq("id", booking.id);
-
-    return {
-      ok: true,
-      bookingId: booking.id,
-      orderId: order.orderId,
-      amountInPaise: order.amountInPaise,
-      currency: order.currency,
-      keyId,
-      prefill: { name: input.fullName.trim(), email: input.email.trim(), contact: whatsapp },
-      totalAmountInr: quote.totalAmountInr,
-    };
-  } catch {
-    return { ok: false, message: "Couldn't reach the payment gateway. Please try again." };
-  }
-}
-
-export type VerifyCheckoutInput = {
-  bookingId: string;
-  orderId: string;
-  paymentId: string;
-  signature: string;
-};
-
-export type VerifyCheckoutResult =
-  | { ok: true; booking: PaymentBooking }
-  | { ok: false; message: string };
-
-export async function verifyCheckoutPayment(
-  input: VerifyCheckoutInput,
-): Promise<VerifyCheckoutResult> {
-  const isValid = paymentProvider.verifyPaymentSignature({
-    orderId: input.orderId,
-    paymentId: input.paymentId,
-    signature: input.signature,
-  });
-
-  if (!isValid) {
-    return { ok: false, message: "We couldn't verify that payment. Please try again or contact us." };
-  }
-
-  const db = createServiceRoleClient();
-  const { data: booking } = await db
-    .from("payment_bookings")
-    .select("*")
-    .eq("id", input.bookingId)
-    .eq("razorpay_order_id", input.orderId)
-    .maybeSingle();
-
-  if (!booking) {
-    return { ok: false, message: "Booking not found." };
-  }
-
-  if (booking.status === "Paid") {
-    // Already marked Paid (e.g. by the webhook) - idempotent no-op.
-    return { ok: true, booking };
-  }
-
-  const { data: updated } = await db
-    .from("payment_bookings")
-    .update({
-      status: "Paid",
-      razorpay_payment_id: input.paymentId,
-      razorpay_signature: input.signature,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", booking.id)
-    .select("*")
-    .single();
-
-  const finalBooking = updated ?? booking;
-
-  let calendlyLink: string | null = null;
-  if (finalBooking.pricing_id) {
-    const { data: pricing } = await db
-      .from("pricing")
-      .select("calendly_link")
-      .eq("id", finalBooking.pricing_id)
-      .maybeSingle();
-    calendlyLink = pricing?.calendly_link ?? null;
-  }
+  const alertPayload = {
+    fullName: booking.full_name,
+    whatsapp: booking.whatsapp,
+    serviceTitle: booking.pricing_title_snapshot,
+    totalAmountInr: booking.total_amount_inr,
+    area: booking.area,
+    companionName,
+  };
 
   await Promise.all([
-    sendPaymentConfirmationEmail({
-      toEmail: finalBooking.email ?? "",
-      fullName: finalBooking.full_name,
-      bookingId: finalBooking.id,
-      serviceTitle: finalBooking.pricing_title_snapshot,
-      totalAmountInr: finalBooking.total_amount_inr,
-      calendlyLink,
-    }),
-    sendPaymentAlertEmail({
-      fullName: finalBooking.full_name,
-      whatsapp: finalBooking.whatsapp,
-      serviceTitle: finalBooking.pricing_title_snapshot,
-      totalAmountInr: finalBooking.total_amount_inr,
-      bookingId: finalBooking.id,
+    sendBookingRequestAlertEmail({ ...alertPayload, bookingId: booking.id, notes: booking.notes }),
+    sendBookingRequestAlertWhatsApp(alertPayload),
+    sendBookingRequestAlertTelegram(alertPayload),
+    sendBookingRequestReceivedEmail({
+      toEmail: booking.email,
+      fullName: booking.full_name,
+      bookingId: booking.id,
+      serviceTitle: booking.pricing_title_snapshot,
+      totalAmountInr: booking.total_amount_inr,
     }),
   ]);
 
-  return { ok: true, booking: finalBooking };
+  return {
+    ok: true,
+    bookingId: booking.id,
+    whatsapp,
+    fullName: booking.full_name,
+    serviceTitle: booking.pricing_title_snapshot,
+    totalAmountInr: booking.total_amount_inr,
+  };
 }
 
 async function requireAdmin(): Promise<{ ok: true } | { ok: false; message: string }> {
@@ -477,9 +415,17 @@ export async function createManualPaymentLink(
   };
 }
 
+// A "Pending" booking now waits on you to send a manual Razorpay Payment Link
+// and on the customer to pay it -- that can reasonably take hours, so this
+// only sweeps up requests nobody ever followed up on. Keep this window long:
+// a booking marked Abandoned too early would also stop matching the
+// payment_link.paid webhook (it only matches still-Pending bookings), so a
+// real late payment could come in and have nothing to attach to.
+const ABANDON_AFTER_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
+
 export async function markAbandonedBookings(): Promise<{ ok: true; count: number }> {
   const db = createServiceRoleClient();
-  const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  const cutoff = new Date(Date.now() - ABANDON_AFTER_MS).toISOString();
   const { data } = await db
     .from("payment_bookings")
     .update({ status: "Abandoned", updated_at: new Date().toISOString() })

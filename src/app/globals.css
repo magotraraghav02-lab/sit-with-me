@@ -41,6 +41,21 @@ body {
    prefers-reduced-motion (see the media query at the bottom of this file).
    ========================================================================== */
 
+@keyframes modal-in {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-modal-in {
+  animation: modal-in 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 @keyframes float-slow {
   0%,
   100% {
@@ -198,6 +213,10 @@ body {
   .badge-shimmer::after {
     animation: none;
     display: none;
+  }
+
+  .animate-modal-in {
+    animation: none;
   }
 
   .wa-fab {

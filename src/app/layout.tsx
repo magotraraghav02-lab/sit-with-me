@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import "./globals.css";
 
 const SITE_URL = "https://sitwithme.in";
@@ -45,10 +44,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        {children}
-        <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
-      </body>
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
