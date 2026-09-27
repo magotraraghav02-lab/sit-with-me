@@ -26,12 +26,12 @@ export default function Footer() {
             @raghavhustle on Instagram
           </a>
           <a
-            href="https://instagram.com/_fit_anurag_pandit_"
+            href="https://instagram.com/anuragsharma.fit"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block font-medium text-cream hover:underline"
           >
-            @_fit_anurag_pandit_ on Instagram
+            @anuragsharma.fit on Instagram
           </a>
         </div>
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-xs text-cream/70">
