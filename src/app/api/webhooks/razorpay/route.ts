@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { paymentProvider, sha256Hex, paiseToRupees } from "@/lib/payments";
+import { normalizeIndianMobile } from "@/lib/validation";
 import { sendPaymentConfirmationEmail, sendPaymentAlertEmail } from "@/lib/email";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PaymentBooking } from "@/lib/types";
@@ -150,11 +151,38 @@ async function findBookingByPaymentLinkId(
   return data ?? null;
 }
 
-// Manual "Payment Link" bridge bookings (created from the admin panel while
-// the on-site Orders checkout is pending Razorpay approval) are confirmed
-// here instead of via handlePaymentCaptured, since they have no order_id.
-// Everything downstream (status, refund button, revenue stats, emails) is
-// identical once this fires.
+// Fallback match for links created by hand in the Razorpay app/dashboard
+// (an Individual account has no live API key, so we never got a plink_id to
+// store up front). We match the oldest still-Pending booking with the same
+// phone number and the same amount -- both are required fields on any
+// Razorpay Payment Link, so this is reliable for normal, low-volume use.
+async function findPendingBookingByContactAndAmount(
+  db: SupabaseClient,
+  contact: string | undefined,
+  amountInPaise: number | undefined,
+): Promise<PaymentBooking | null> {
+  if (!contact || typeof amountInPaise !== "number") return null;
+  const whatsapp = normalizeIndianMobile(contact);
+  const amountInr = Math.round(amountInPaise) / 100;
+
+  const { data } = await db
+    .from("payment_bookings")
+    .select("*")
+    .eq("whatsapp", whatsapp)
+    .eq("total_amount_inr", amountInr)
+    .eq("status", "Pending")
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return data ?? null;
+}
+
+// Manual "Payment Link" bridge bookings (logged from the admin panel for a
+// link you create yourself in the Razorpay app, since an Individual account
+// has no live API key to create one in code) are confirmed here instead of
+// via handlePaymentCaptured, since they have no order_id. Everything
+// downstream (status, refund button, revenue stats, emails) is identical
+// once this fires.
 async function handlePaymentLinkPaid(
   db: SupabaseClient,
   linkEntity: Record<string, unknown> | undefined,
@@ -162,9 +190,16 @@ async function handlePaymentLinkPaid(
 ) {
   const linkId = linkEntity?.id as string | undefined;
   const paymentId = paymentEntity?.id as string | undefined;
-  if (!linkId) return;
 
-  const booking = await findBookingByPaymentLinkId(db, linkId);
+  let booking = linkId ? await findBookingByPaymentLinkId(db, linkId) : null;
+  if (!booking) {
+    const customer = linkEntity?.customer as Record<string, unknown> | undefined;
+    booking = await findPendingBookingByContactAndAmount(
+      db,
+      customer?.contact as string | undefined,
+      linkEntity?.amount as number | undefined,
+    );
+  }
   if (!booking) return;
   if (booking.status === "Paid") return;
 

@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { createManualPaymentLink } from "@/app/payment-actions";
 
-// Bridge tool for while the on-site checkout can't yet take live payments:
-// creates a Razorpay Payment Link for one customer and hands you a
-// one-tap "Send on WhatsApp" button, so you're not typing the message or
-// generating the link by hand in the Razorpay dashboard. Once the customer
-// pays, it shows up in the table below automatically -- same as any other
-// booking, refundable the same way.
+// Bridge tool for an Individual Razorpay account: it can't get a live API
+// key (needs full business KYC), so this doesn't create the payment link --
+// you still create that yourself in the Razorpay app/dashboard, exactly as
+// you do today. What this DOES do: log the booking here first, so that once
+// you create the matching link (same phone number, same amount) and the
+// customer pays, the payment_link.paid webhook matches it back to this row
+// automatically -- same "Paid" status, same refund button, same revenue
+// stats, same confirmation email as any other booking on the site.
 export default function QuickPaymentLinkForm() {
   const [open, setOpen] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -20,7 +22,6 @@ export default function QuickPaymentLinkForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
-    shortUrl: string;
     whatsapp: string;
     customerName: string;
     serviceTitle: string;
@@ -58,32 +59,6 @@ export default function QuickPaymentLinkForm() {
     }
   }
 
-  function whatsappMessage() {
-    if (!result) return "";
-    return [
-      `Hi ${result.customerName}! Here's your payment link for ${result.serviceTitle} (₹${result.amountInr.toLocaleString("en-IN")}):`,
-      result.shortUrl,
-      "",
-      "Once it's paid, your booking is confirmed right away.",
-      "- Team SIT WITH ME",
-    ].join("\n");
-  }
-
-  function openWhatsapp() {
-    if (!result) return;
-    const url = `https://wa.me/91${result.whatsapp}?text=${encodeURIComponent(whatsappMessage())}`;
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-
-  async function copyLink() {
-    if (!result) return;
-    try {
-      await navigator.clipboard.writeText(result.shortUrl);
-    } catch {
-      // clipboard API can be unavailable -- link is still visible to select manually
-    }
-  }
-
   return (
     <div className="card mb-6 p-4">
       <button
@@ -91,7 +66,7 @@ export default function QuickPaymentLinkForm() {
         className="flex w-full items-center justify-between text-left"
       >
         <span className="text-sm font-semibold text-ink">
-          Quick Payment Link — send a customer a payment link on WhatsApp
+          Track a Payment Link — for links you create yourself in Razorpay
         </span>
         <span className="text-sm text-forest">{open ? "Hide" : "Open"}</span>
       </button>
@@ -157,34 +132,38 @@ export default function QuickPaymentLinkForm() {
               {error && <p className="text-sm text-red-600 sm:col-span-2">{error}</p>}
               <div className="sm:col-span-2">
                 <button type="submit" disabled={submitting} className="btn-primary !py-2 !px-4 text-sm">
-                  {submitting ? "Creating link..." : "Create payment link"}
+                  {submitting ? "Saving..." : "Save booking"}
                 </button>
               </div>
             </form>
           ) : (
             <div className="space-y-3">
               <p className="text-sm text-forest">
-                Payment link created for {result.customerName} — ₹
-                {result.amountInr.toLocaleString("en-IN")}
+                Booking saved for {result.customerName} — ₹{result.amountInr.toLocaleString("en-IN")}
               </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <code className="rounded-lg bg-sand px-3 py-2 text-sm text-ink">{result.shortUrl}</code>
-                <button onClick={copyLink} className="btn-secondary !py-2 !px-3 text-sm">
-                  Copy link
-                </button>
+              <div className="rounded-lg bg-sand p-3 text-sm text-ink">
+                <p className="mb-2 font-medium">Now finish it in Razorpay:</p>
+                <ol className="list-inside list-decimal space-y-1">
+                  <li>
+                    Open the Razorpay app (or dashboard) → <strong>Payment Links</strong> → new link
+                  </li>
+                  <li>
+                    Amount: <strong>₹{result.amountInr.toLocaleString("en-IN")}</strong> (must match
+                    exactly)
+                  </li>
+                  <li>
+                    Customer phone: <strong>{result.whatsapp}</strong> (must match exactly)
+                  </li>
+                  <li>Create it, then send it to the customer yourself — WhatsApp, SMS, however you like</li>
+                </ol>
+                <p className="mt-2 text-xs text-muted">
+                  Once they pay, this booking flips to &quot;Paid&quot; below on its own — no need to
+                  come back and update anything.
+                </p>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={openWhatsapp} className="btn-primary !py-2 !px-4 text-sm">
-                  Open WhatsApp to send it
-                </button>
-                <button onClick={reset} className="text-sm text-muted underline">
-                  Create another
-                </button>
-              </div>
-              <p className="text-xs text-muted">
-                This opens WhatsApp with the message ready — you just hit send. Once the customer
-                pays, this booking turns Paid automatically in the table below.
-              </p>
+              <button onClick={reset} className="text-sm text-muted underline">
+                Log another booking
+              </button>
             </div>
           )}
         </div>

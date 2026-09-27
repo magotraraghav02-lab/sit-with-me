@@ -399,7 +399,6 @@ export type CreateManualLinkResult =
   | {
       ok: true;
       bookingId: string;
-      shortUrl: string;
       whatsapp: string;
       customerName: string;
       serviceTitle: string;
@@ -407,11 +406,13 @@ export type CreateManualLinkResult =
     }
   | { ok: false; message: string };
 
-// Admin-only bridge: manually creates a booking row + a standalone Razorpay
-// Payment Link, for use while the on-site Orders checkout isn't yet approved
-// for live payments. Once the payment_link.paid webhook fires, this booking
-// behaves exactly like a normal paid booking -- same refund button, same
-// revenue stats, same confirmation email.
+// Admin-only bridge: logs a Pending booking for a payment link YOU create
+// yourself in the Razorpay app/dashboard (your Individual account can't get
+// a live API key without full business KYC, so we can't generate the link
+// in code). Use the exact same phone number and amount here as you enter in
+// Razorpay -- that's how the webhook matches this booking to that payment
+// once the customer pays, and flips it to Paid automatically (same refund
+// button, same revenue stats, same confirmation email as any other booking).
 export async function createManualPaymentLink(
   input: CreateManualLinkInput,
 ): Promise<CreateManualLinkResult> {
@@ -466,40 +467,14 @@ export async function createManualPaymentLink(
     return { ok: false, message: "Couldn't save this booking. Please try again." };
   }
 
-  try {
-    const link = await paymentProvider.createPaymentLink({
-      amountInPaise: rupeesToPaise(amountInr),
-      currency: PAYMENT_CURRENCY,
-      referenceId: booking.id,
-      description: `SIT WITH ME - ${input.serviceTitle.trim()}`,
-      customer: {
-        name: input.fullName.trim(),
-        contact: `+91${whatsapp}`,
-        email: email ?? undefined,
-      },
-      notes: { booking_id: booking.id },
-    });
-
-    await db
-      .from("payment_bookings")
-      .update({
-        razorpay_payment_link_id: link.paymentLinkId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", booking.id);
-
-    return {
-      ok: true,
-      bookingId: booking.id,
-      shortUrl: link.shortUrl,
-      whatsapp,
-      customerName: input.fullName.trim(),
-      serviceTitle: input.serviceTitle.trim(),
-      amountInr,
-    };
-  } catch {
-    return { ok: false, message: "Couldn't reach Razorpay to create the link. Please try again." };
-  }
+  return {
+    ok: true,
+    bookingId: booking.id,
+    whatsapp,
+    customerName: input.fullName.trim(),
+    serviceTitle: input.serviceTitle.trim(),
+    amountInr,
+  };
 }
 
 export async function markAbandonedBookings(): Promise<{ ok: true; count: number }> {
