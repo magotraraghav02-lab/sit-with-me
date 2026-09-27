@@ -50,10 +50,16 @@ export default function CompanionCard({
         </div>
         <p className="mb-2 text-sm text-clay">{companion.languages.join(" · ")}</p>
         <p className="mb-3 text-sm text-ink/80">{companion.intro}</p>
-        <p className="mb-5 text-sm text-muted">
+        <p className="mb-2 text-sm text-muted">
           <span className="font-medium text-ink/70">Loves: </span>
           {companion.favorites}
         </p>
+        {companion.services_offered && (
+          <p className="mb-5 text-sm text-muted">
+            <span className="font-medium text-ink/70">Offers: </span>
+            {companion.services_offered}
+          </p>
+        )}
         <a
           href={`#booking?companion=${companion.id}`}
           data-companion-id={companion.id}

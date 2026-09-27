@@ -9,15 +9,11 @@ export default function CompanionsSection({ companions }: { companions: Companio
         <p className="mb-10 text-center text-muted">
           Real listeners, not experts or therapists — just good company.
         </p>
-        {companions.length === 0 ? (
-          <p className="text-center text-muted">Companions will be listed here shortly.</p>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-            {companions.map((companion, index) => (
-              <CompanionCard key={companion.id} companion={companion} index={index} />
-            ))}
-          </div>
-        )}
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          {companions.map((companion, index) => (
+            <CompanionCard key={companion.id} companion={companion} index={index} />
+          ))}
+        </div>
       </div>
     </section>
   );

@@ -8,6 +8,7 @@ export type Companion = {
   photo_url: string | null;
   visible: boolean;
   available_today: boolean;
+  services_offered: string | null;
   sort_order: number;
   created_at: string;
 };
@@ -49,7 +50,7 @@ export type Booking = {
   created_at: string;
 };
 
-export const ACTIVITIES = ["Café chat", "Walk", "Movie", "Temple visit", "Nandi Hills", "Church", "Other"] as const;
+export const ACTIVITIES = ["Café chat", "Walk", "Movie", "Temple visit", "Church", "Other"] as const;
 
 export const BOOKING_STATUSES: BookingStatus[] = [
   "New",

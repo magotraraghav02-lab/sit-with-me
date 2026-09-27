@@ -11,6 +11,7 @@ const emptyForm = {
   languages: "",
   intro: "",
   favorites: "",
+  services_offered: "",
   photo_url: "",
   sort_order: "0",
 };
@@ -44,6 +45,7 @@ export default function AdminCompanionsPage() {
       languages: c.languages.join(", "),
       intro: c.intro,
       favorites: c.favorites,
+      services_offered: c.services_offered ?? "",
       photo_url: c.photo_url ?? "",
       sort_order: String(c.sort_order),
     });
@@ -79,6 +81,7 @@ export default function AdminCompanionsPage() {
         .filter(Boolean),
       intro: form.intro.trim(),
       favorites: form.favorites.trim(),
+      services_offered: form.services_offered.trim() || null,
       photo_url: form.photo_url || null,
       sort_order: Number(form.sort_order) || 0,
     };
@@ -199,6 +202,15 @@ export default function AdminCompanionsPage() {
               className="input"
               value={form.favorites}
               onChange={(e) => setForm((f) => ({ ...f, favorites: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="label">Services offered</label>
+            <input
+              className="input"
+              value={form.services_offered}
+              onChange={(e) => setForm((f) => ({ ...f, services_offered: e.target.value }))}
+              placeholder="Just Talk · Walk & Talk · Café Chat"
             />
           </div>
           <div>

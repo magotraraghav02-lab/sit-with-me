@@ -18,6 +18,8 @@ create table if not exists companions (
   favorites text not null default '',
   photo_url text,
   visible boolean not null default true,
+  available_today boolean not null default false,
+  services_offered text,
   sort_order int not null default 0,
   created_at timestamptz not null default now()
 );

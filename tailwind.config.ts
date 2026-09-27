@@ -11,6 +11,8 @@ const config: Config = {
         forest: "#4A5D50",
         ink: "#2E2A26",
         muted: "#8A8178",
+        navy: "#1B1F3B",
+        amber: "#E8A33D",
       },
       fontFamily: {
         sans: ["ui-sans-serif", "system-ui", "sans-serif"],

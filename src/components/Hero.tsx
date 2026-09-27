@@ -24,7 +24,7 @@ export default function Hero() {
         <p className="mb-4 text-sm font-medium uppercase tracking-wide text-clay">
           Bangalore · Platonic companionship
         </p>
-        <h1 className="shimmer-text text-4xl font-semibold leading-tight sm:text-5xl">
+        <h1 className="text-navy text-4xl font-semibold leading-tight sm:text-5xl">
           Someone to talk to.
           <br />
           No judgment.
