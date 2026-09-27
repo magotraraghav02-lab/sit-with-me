@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import type { PricingPlan } from "@/lib/types";
+import type { PricingPlan, Zone } from "@/lib/types";
+import CheckoutModal from "./CheckoutModal";
 
-export default function Pricing({ plans }: { plans: PricingPlan[] }) {
+export default function Pricing({ plans, zones }: { plans: PricingPlan[]; zones: Zone[] }) {
   const reduceMotion = useReducedMotion();
+  const [checkoutPlan, setCheckoutPlan] = useState<PricingPlan | null>(null);
 
   return (
     <section className="bg-cream">
@@ -33,14 +36,27 @@ export default function Pricing({ plans }: { plans: PricingPlan[] }) {
               {plan.description && (
                 <p className="mt-3 text-sm text-ink/70">{plan.description}</p>
               )}
+              <button
+                onClick={() => setCheckoutPlan(plan)}
+                className="btn-primary mt-5 w-full"
+              >
+                Book now
+              </button>
             </motion.div>
           ))}
         </div>
         <p className="mt-6 text-center text-sm text-muted">
-          You cover your own food, tickets and travel. Full payment upfront via UPI confirms your
-          booking.
+          You cover your own food, tickets and travel. Full payment upfront via UPI, cards,
+          netbanking or wallets confirms your booking.
         </p>
       </div>
+      {checkoutPlan && (
+        <CheckoutModal
+          plan={checkoutPlan}
+          zones={zones}
+          onClose={() => setCheckoutPlan(null)}
+        />
+      )}
     </section>
   );
 }

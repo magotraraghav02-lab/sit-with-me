@@ -220,3 +220,20 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Plain content styling for the policy pages (no typography plugin installed). */
+.policy-body h2 {
+  @apply mt-8 text-xl font-semibold text-ink;
+}
+.policy-body h3 {
+  @apply mt-6 text-lg font-medium text-ink;
+}
+.policy-body p {
+  @apply leading-relaxed;
+}
+.policy-body ul {
+  @apply list-disc space-y-1 pl-5;
+}
+.policy-body a {
+  @apply underline;
+}

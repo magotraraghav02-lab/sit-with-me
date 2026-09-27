@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { PricingPlan } from "@/lib/types";
 
-const emptyForm = { id: "", title: "", duration: "", price_inr: "", description: "", sort_order: "0" };
+const emptyForm = { id: "", title: "", duration: "", price_inr: "", description: "", sort_order: "0", calendly_link: "" };
 
 export default function AdminPricingPage() {
   const [plans, setPlans] = useState<PricingPlan[]>([]);
@@ -34,6 +34,7 @@ export default function AdminPricingPage() {
       price_inr: String(p.price_inr),
       description: p.description ?? "",
       sort_order: String(p.sort_order),
+      calendly_link: p.calendly_link ?? "",
     });
   }
 
@@ -49,6 +50,7 @@ export default function AdminPricingPage() {
       price_inr: Number(form.price_inr) || 0,
       description: form.description.trim() || null,
       sort_order: Number(form.sort_order) || 0,
+      calendly_link: form.calendly_link.trim() || null,
     };
 
     if (form.id) {
@@ -157,6 +159,18 @@ export default function AdminPricingPage() {
               value={form.sort_order}
               onChange={(e) => setForm((f) => ({ ...f, sort_order: e.target.value }))}
             />
+          </div>
+          <div>
+            <label className="label">Calendly link (optional)</label>
+            <input
+              className="input"
+              value={form.calendly_link}
+              onChange={(e) => setForm((f) => ({ ...f, calendly_link: e.target.value }))}
+              placeholder="https://calendly.com/sitwithme/cafe-chat"
+            />
+            <p className="mt-1 text-xs text-muted">
+              Shown to customers on the payment success screen as &quot;Pick your slot&quot;.
+            </p>
           </div>
           <div className="flex gap-3">
             <button onClick={handleSave} disabled={saving} className="btn-primary">

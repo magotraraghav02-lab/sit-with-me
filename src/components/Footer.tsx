@@ -34,6 +34,14 @@ export default function Footer() {
             @_fit_anurag_pandit_ on Instagram
           </a>
         </div>
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-1 text-xs text-cream/70">
+          <a href="/terms" className="hover:underline">Terms & Conditions</a>
+          <a href="/privacy" className="hover:underline">Privacy Policy</a>
+          <a href="/refund-policy" className="hover:underline">Refund & Cancellation Policy</a>
+          <a href="/service-delivery" className="hover:underline">Service Delivery Policy</a>
+          <a href="/contact" className="hover:underline">Contact Us</a>
+        </div>
+        <p className="text-xs text-cream/50">🔒 Secure payments by Razorpay</p>
         <p>We only use your details to arrange your meetup and never share them.</p>
         <p className="text-cream/50">
           If you&apos;re in crisis or thinking of harming yourself, please call Tele-MANAS at{" "}

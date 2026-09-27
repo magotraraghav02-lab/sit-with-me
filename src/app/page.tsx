@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Companion, PricingPlan } from "@/lib/types";
+import type { Companion, PricingPlan, Zone } from "@/lib/types";
 import Header from "@/components/Header";
 import FadeInSection from "@/components/FadeInSection";
 import RippleLayer from "@/components/RippleLayer";
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function HomePage() {
   const supabase = await createClient();
 
-  const [{ data: companions }, { data: plans }] = await Promise.all([
+  const [{ data: companions }, { data: plans }, { data: zones }] = await Promise.all([
     supabase
       .from("companions")
       .select("*")
@@ -27,6 +27,11 @@ export default async function HomePage() {
       .order("sort_order", { ascending: true }),
     supabase
       .from("pricing")
+      .select("*")
+      .eq("visible", true)
+      .order("sort_order", { ascending: true }),
+    supabase
+      .from("zones")
       .select("*")
       .eq("visible", true)
       .order("sort_order", { ascending: true }),
@@ -47,7 +52,7 @@ export default async function HomePage() {
           <HowItWorks />
         </FadeInSection>
         <FadeInSection>
-          <Pricing plans={(plans as PricingPlan[]) ?? []} />
+          <Pricing plans={(plans as PricingPlan[]) ?? []} zones={(zones as Zone[]) ?? []} />
         </FadeInSection>
         <FadeInSection>
           <DoDont />

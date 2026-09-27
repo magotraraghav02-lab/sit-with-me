@@ -38,15 +38,24 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
           <div className="flex items-center gap-6">
             <span className="font-semibold text-ink">SIT WITH ME — Admin</span>
-            <nav className="flex gap-4 text-sm text-muted">
+            <nav className="flex flex-wrap gap-4 text-sm text-muted">
               <Link href="/admin" className="hover:text-ink">
                 Bookings
+              </Link>
+              <Link href="/admin/payments" className="hover:text-ink">
+                Payments
               </Link>
               <Link href="/admin/companions" className="hover:text-ink">
                 Companions
               </Link>
               <Link href="/admin/pricing" className="hover:text-ink">
                 Pricing
+              </Link>
+              <Link href="/admin/zones" className="hover:text-ink">
+                Zones
+              </Link>
+              <Link href="/admin/coupons" className="hover:text-ink">
+                Coupons
               </Link>
             </nav>
           </div>
