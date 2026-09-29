@@ -26,6 +26,20 @@ function whatsappMessageFor(booking: PaymentBooking): string {
   return `Hi ${firstName}, following up on your ${booking.pricing_title_snapshot} request with SIT WITH ME.`;
 }
 
+const PENDING_FOLLOW_UP_AFTER_MS = 30 * 60 * 1000;
+
+function sourceLabel(booking: PaymentBooking): string {
+  if (booking.utm_campaign) return booking.utm_campaign;
+  if (booking.utm_source) return booking.utm_source;
+  if (booking.fbclid) return "Meta ad (untagged)";
+  return "Direct";
+}
+
+export function needsFollowUp(booking: PaymentBooking): boolean {
+  if (booking.status !== "Pending") return false;
+  return Date.now() - new Date(booking.created_at).getTime() > PENDING_FOLLOW_UP_AFTER_MS;
+}
+
 export default function PaymentRow({
   booking,
   onChange,
@@ -38,6 +52,7 @@ export default function PaymentRow({
   const [refundAmount, setRefundAmount] = useState(booking.total_amount_inr.toString());
   const [refunding, setRefunding] = useState(false);
   const [refundError, setRefundError] = useState<string | null>(null);
+  const followUp = needsFollowUp(booking);
 
   async function handleRefund() {
     setRefunding(true);
@@ -72,6 +87,9 @@ export default function PaymentRow({
           {booking.travel_fee_inr > 0 ? `₹${booking.travel_fee_inr}` : "—"}
         </td>
         <td className="px-3 py-3 text-sm text-muted">{booking.coupon_code ?? "—"}</td>
+        <td className="max-w-[140px] truncate px-3 py-3 text-xs text-muted" title={sourceLabel(booking)}>
+          {sourceLabel(booking)}
+        </td>
         <td className="px-3 py-3">
           <span
             className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -80,6 +98,11 @@ export default function PaymentRow({
           >
             {booking.status}
           </span>
+          {followUp && (
+            <span className="ml-1.5 rounded-full bg-amber/20 px-2 py-1 text-xs font-medium text-ink">
+              ⏳ Follow up
+            </span>
+          )}
         </td>
         <td className="max-w-[140px] truncate px-3 py-3 text-xs text-muted" title={booking.razorpay_payment_id ?? ""}>
           {booking.razorpay_payment_id ?? "—"}
@@ -105,7 +128,7 @@ export default function PaymentRow({
       </tr>
       {expanded && (
         <tr className="border-b border-black/5 bg-white/60">
-          <td colSpan={9} className="px-3 py-4">
+          <td colSpan={10} className="px-3 py-4">
             <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-3">
               <div>
                 <p className="text-xs uppercase tracking-wide text-muted">Booking ID</p>
@@ -118,6 +141,22 @@ export default function PaymentRow({
               <div>
                 <p className="text-xs uppercase tracking-wide text-muted">Area</p>
                 <p className="text-ink">{booking.area}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted">UTM source / medium</p>
+                <p className="text-ink">
+                  {booking.utm_source ?? "\u2014"} / {booking.utm_medium ?? "\u2014"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted">UTM campaign</p>
+                <p className="text-ink">{booking.utm_campaign ?? "\u2014"}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-muted">fbclid</p>
+                <p className="truncate text-ink" title={booking.fbclid ?? ""}>
+                  {booking.fbclid ?? "\u2014"}
+                </p>
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wide text-muted">Base amount</p>

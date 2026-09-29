@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import MetaPixel from "@/components/MetaPixel";
 import "./globals.css";
 
 const SITE_URL = "https://sitwithme.in";
@@ -44,7 +45,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <MetaPixel />
+        {children}
+      </body>
     </html>
   );
 }

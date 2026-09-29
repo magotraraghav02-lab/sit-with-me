@@ -1,3 +1,7 @@
+"use client";
+
+import { trackEvent } from "@/lib/meta/pixel";
+
 const NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "919622323171";
 
 export default function WhatsAppButton() {
@@ -18,6 +22,7 @@ export default function WhatsAppButton() {
         target="_blank"
         rel="noopener noreferrer"
         aria-label="Chat with us on WhatsApp"
+        onClick={() => trackEvent("Contact")}
         className="wa-fab flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] shadow-lg transition hover:scale-105 active:scale-95"
       >
         <svg viewBox="0 0 32 32" className="h-7 w-7 fill-white" aria-hidden="true">

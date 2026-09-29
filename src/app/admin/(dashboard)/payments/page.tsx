@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toCsv, downloadCsv } from "@/lib/csv";
 import { PAYMENT_STATUSES, type PaymentBooking } from "@/lib/types";
-import PaymentRow from "@/components/admin/PaymentRow";
+import PaymentRow, { needsFollowUp } from "@/components/admin/PaymentRow";
 import QuickPaymentLinkForm from "@/components/admin/QuickPaymentLinkForm";
 import { markAbandonedBookings } from "@/app/payment-actions";
 
@@ -14,6 +14,7 @@ export default function AdminPaymentsPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [followUpOnly, setFollowUpOnly] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -34,14 +35,13 @@ export default function AdminPaymentsPage() {
     return [...set];
   }, [bookings]);
 
-  const filtered = useMemo(() => {
-    return bookings.filter((b) => {
-      if (statusFilter && b.status !== statusFilter) return false;
-      if (serviceFilter && b.pricing_title_snapshot !== serviceFilter) return false;
-      if (dateFilter && !b.created_at.startsWith(dateFilter)) return false;
-      return true;
-    });
-  }, [bookings, statusFilter, serviceFilter, dateFilter]);
+  const filtered = bookings.filter((b) => {
+    if (statusFilter && b.status !== statusFilter) return false;
+    if (serviceFilter && b.pricing_title_snapshot !== serviceFilter) return false;
+    if (dateFilter && !b.created_at.startsWith(dateFilter)) return false;
+    if (followUpOnly && !needsFollowUp(b)) return false;
+    return true;
+  });
 
   const stats = useMemo(() => {
     const paidOnly = bookings.filter((b) => b.status === "Paid");
@@ -93,6 +93,10 @@ export default function AdminPaymentsPage() {
       coupon_discount_inr: b.coupon_discount_inr,
       total_amount_inr: b.total_amount_inr,
       status: b.status,
+      utm_source: b.utm_source,
+      utm_medium: b.utm_medium,
+      utm_campaign: b.utm_campaign,
+      fbclid: b.fbclid,
       razorpay_payment_id: b.razorpay_payment_id,
       razorpay_order_id: b.razorpay_order_id,
     }));
@@ -155,12 +159,22 @@ export default function AdminPaymentsPage() {
           onChange={(e) => setDateFilter(e.target.value)}
           className="rounded-lg border border-black/10 bg-white px-3 py-2 text-sm"
         />
-        {(statusFilter || serviceFilter || dateFilter) && (
+        <label className="flex items-center gap-1.5 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={followUpOnly}
+            onChange={(e) => setFollowUpOnly(e.target.checked)}
+            className="h-4 w-4 rounded border-black/20"
+          />
+          Needs follow-up (30+ min, unpaid)
+        </label>
+        {(statusFilter || serviceFilter || dateFilter || followUpOnly) && (
           <button
             onClick={() => {
               setStatusFilter("");
               setServiceFilter("");
               setDateFilter("");
+              setFollowUpOnly(false);
             }}
             className="text-sm text-muted hover:text-ink"
           >
@@ -183,6 +197,7 @@ export default function AdminPaymentsPage() {
               <th className="px-3 py-3">Amount</th>
               <th className="px-3 py-3">Travel fee</th>
               <th className="px-3 py-3">Coupon</th>
+              <th className="px-3 py-3">Source / Campaign</th>
               <th className="px-3 py-3">Status</th>
               <th className="px-3 py-3">Payment ID</th>
               <th className="px-3 py-3"></th>
@@ -191,13 +206,13 @@ export default function AdminPaymentsPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-center text-muted">
+                <td colSpan={11} className="px-3 py-6 text-center text-muted">
                   Loading...
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-center text-muted">
+                <td colSpan={11} className="px-3 py-6 text-center text-muted">
                   No payments yet.
                 </td>
               </tr>

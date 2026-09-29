@@ -8,6 +8,7 @@ import {
   sendPaymentAlertEmail,
   sendBookingRequestAlertEmail,
   sendBookingRequestReceivedEmail,
+  sendAbandonedReminderEmail,
 } from "@/lib/email";
 import { sendBookingRequestAlertWhatsApp } from "@/lib/whatsapp";
 import { sendBookingRequestAlertTelegram } from "@/lib/telegram";
@@ -131,6 +132,15 @@ export type SubmitBookingRequestInput = {
   couponCode: string | null;
   isAdult: boolean;
   agreedPolicy: boolean;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
+  utmTerm?: string | null;
+  utmContent?: string | null;
+  fbclid?: string | null;
+  fbp?: string | null;
+  fbc?: string | null;
+  landingPage?: string | null;
 };
 
 export type SubmitBookingRequestResult =
@@ -211,6 +221,15 @@ export async function submitBookingRequest(
       is_adult: input.isAdult,
       agreed_policy: input.agreedPolicy,
       status: "Pending",
+      utm_source: input.utmSource || null,
+      utm_medium: input.utmMedium || null,
+      utm_campaign: input.utmCampaign || null,
+      utm_term: input.utmTerm || null,
+      utm_content: input.utmContent || null,
+      fbclid: input.fbclid || null,
+      fbp: input.fbp || null,
+      fbc: input.fbc || null,
+      landing_page: input.landingPage || null,
     })
     .select("*")
     .single();
@@ -434,4 +453,44 @@ export async function markAbandonedBookings(): Promise<{ ok: true; count: number
     .select("id");
 
   return { ok: true, count: data?.length ?? 0 };
+}
+
+const REMINDER_AFTER_MS = 30 * 60 * 1000; // 30 minutes
+
+// One-time "still there?" email for a still-Pending booking, ~30 minutes in.
+// Meant to be called by /api/cron/sweep-bookings every few minutes (see that
+// route + the README for why Vercel's own Hobby-tier cron can't hit that
+// frequency on its own).
+export async function sendAbandonedReminders(): Promise<{ ok: true; count: number }> {
+  const db = createServiceRoleClient();
+  const cutoff = new Date(Date.now() - REMINDER_AFTER_MS).toISOString();
+
+  const { data: candidates } = await db
+    .from("payment_bookings")
+    .select("*")
+    .eq("status", "Pending")
+    .is("abandoned_reminder_sent_at", null)
+    .not("email", "is", null)
+    .lt("created_at", cutoff);
+
+  if (!candidates || candidates.length === 0) return { ok: true, count: 0 };
+
+  let sent = 0;
+  for (const booking of candidates as PaymentBooking[]) {
+    if (!booking.email) continue;
+    await sendAbandonedReminderEmail({
+      toEmail: booking.email,
+      fullName: booking.full_name,
+      bookingId: booking.id,
+      serviceTitle: booking.pricing_title_snapshot,
+      totalAmountInr: booking.total_amount_inr,
+    });
+    await db
+      .from("payment_bookings")
+      .update({ abandoned_reminder_sent_at: new Date().toISOString() })
+      .eq("id", booking.id);
+    sent += 1;
+  }
+
+  return { ok: true, count: sent };
 }

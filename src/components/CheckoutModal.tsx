@@ -3,11 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { isValidIndianMobile } from "@/lib/validation";
 import { getCheckoutQuote, submitBookingRequest } from "@/app/payment-actions";
+import { getAttribution, getMetaBrowserIds } from "@/lib/attribution";
+import { trackEvent } from "@/lib/meta/pixel";
 import type { PricingPlan, Zone } from "@/lib/types";
 
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "919622323171";
 
 type Step = "form" | "submitting" | "success";
+type FormStep = "details" | "review";
 
 type Quote = {
   baseAmountInr: number;
@@ -31,6 +34,7 @@ export default function CheckoutModal({
   onClose: () => void;
 }) {
   const [step, setStep] = useState<Step>("form");
+  const [formStep, setFormStep] = useState<FormStep>("details");
   const [fullName, setFullName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [email, setEmail] = useState("");
@@ -65,6 +69,15 @@ export default function CheckoutModal({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    trackEvent("InitiateCheckout", {
+      content_name: plan.title,
+      value: plan.price_inr,
+      currency: "INR",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       const result = await getCheckoutQuote({
@@ -86,7 +99,7 @@ export default function CheckoutModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan.id, area, couponCode]);
 
-  function validate(): FormErrors {
+  function validateDetails(): FormErrors {
     const next: FormErrors = {};
     if (!fullName || fullName.trim().length < 2) next.fullName = "Please enter your full name.";
     if (!isValidIndianMobile(whatsapp)) next.whatsapp = "Enter a valid 10-digit Indian mobile number.";
@@ -94,19 +107,30 @@ export default function CheckoutModal({
       next.email = "Enter a valid email address, or leave it blank.";
     }
     if (!area) next.area = "Please select your area.";
-    if (!isAdult || !agreedPolicy) next.consent = "Both checkboxes are required.";
     return next;
+  }
+
+  function handleContinue(e: React.FormEvent) {
+    e.preventDefault();
+    const validationErrors = validateDetails();
+    setErrors(validationErrors);
+    if (Object.keys(validationErrors).length > 0) return;
+    setFormStep("review");
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const validationErrors = validate();
-    setErrors(validationErrors);
-    if (Object.keys(validationErrors).length > 0) return;
+    if (!isAdult || !agreedPolicy) {
+      setErrors((prev) => ({ ...prev, consent: "Both checkboxes are required." }));
+      return;
+    }
     if (!quote) return;
 
     setFormError(null);
     setStep("submitting");
+
+    const attribution = getAttribution();
+    const { fbp, fbc } = getMetaBrowserIds();
 
     const result = await submitBookingRequest({
       pricingId: plan.id,
@@ -119,6 +143,15 @@ export default function CheckoutModal({
       couponCode: couponCode.trim() || null,
       isAdult,
       agreedPolicy,
+      utmSource: attribution.utmSource,
+      utmMedium: attribution.utmMedium,
+      utmCampaign: attribution.utmCampaign,
+      utmTerm: attribution.utmTerm,
+      utmContent: attribution.utmContent,
+      fbclid: attribution.fbclid,
+      fbp,
+      fbc,
+      landingPage: attribution.landingPage,
     });
 
     if (!result.ok) {
@@ -167,6 +200,18 @@ export default function CheckoutModal({
                 href={`https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappMessage}`}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => {
+                  // Closest real signal we have to "payment step reached": the
+                  // customer is now on their way to receive and act on a real
+                  // Razorpay payment link. See the webhook route for why
+                  // Purchase itself only ever fires server-side.
+                  trackEvent("AddPaymentInfo", {
+                    content_name: plan.title,
+                    value: successBooking.totalAmountInr,
+                    currency: "INR",
+                  });
+                  trackEvent("Contact");
+                }}
                 className="btn-primary block w-full"
               >
                 Message us on WhatsApp now
@@ -177,7 +222,7 @@ export default function CheckoutModal({
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={formStep === "details" ? handleContinue : handleSubmit} className="space-y-4">
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-ink">Book: {plan.title}</h3>
@@ -198,166 +243,214 @@ export default function CheckoutModal({
               </button>
             </div>
 
-            <div>
-              <label className="label" htmlFor="co-fullName">
-                Full name
-              </label>
-              <input
-                id="co-fullName"
-                className="input"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Your name"
-              />
-              {errors.fullName && <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>}
+            <div className="flex items-center gap-2" aria-hidden="true">
+              <div className={`h-1.5 flex-1 rounded-full ${formStep === "details" || formStep === "review" ? "bg-forest" : "bg-black/10"}`} />
+              <div className={`h-1.5 flex-1 rounded-full ${formStep === "review" ? "bg-forest" : "bg-black/10"}`} />
             </div>
-
-            <div>
-              <label className="label" htmlFor="co-whatsapp">
-                WhatsApp number
-              </label>
-              <input
-                id="co-whatsapp"
-                className="input"
-                value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value)}
-                placeholder="10-digit mobile number"
-                inputMode="numeric"
-              />
-              {errors.whatsapp && <p className="mt-1 text-sm text-red-600">{errors.whatsapp}</p>}
-              <p className="mt-1 text-xs text-muted">
-                We&apos;ll send your payment link to this number.
-              </p>
-            </div>
-
-            <div>
-              <label className="label" htmlFor="co-email">
-                Email (optional)
-              </label>
-              <input
-                id="co-email"
-                type="email"
-                className="input"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-              />
-              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
-            </div>
-
-            <div>
-              <label className="label" htmlFor="co-area">
-                Area
-              </label>
-              <select
-                id="co-area"
-                className="input"
-                value={area}
-                onChange={(e) => setArea(e.target.value)}
-              >
-                {zones.map((z) => (
-                  <option key={z.id} value={z.area_name}>
-                    {z.area_name}
-                    {!z.in_zone && z.travel_fee_inr > 0 ? ` (+₹${z.travel_fee_inr} travel)` : ""}
-                  </option>
-                ))}
-              </select>
-              {errors.area && <p className="mt-1 text-sm text-red-600">{errors.area}</p>}
-            </div>
-
-            <div>
-              <label className="label" htmlFor="co-notes">
-                Preferred date/time or notes (optional)
-              </label>
-              <textarea
-                id="co-notes"
-                className="input min-h-[70px]"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="label" htmlFor="co-coupon">
-                Coupon code (optional)
-              </label>
-              <input
-                id="co-coupon"
-                className="input"
-                value={couponCode}
-                onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                placeholder="e.g. WELCOME100"
-              />
-            </div>
-
-            <div className="rounded-xl bg-sand p-4 text-sm text-ink">
-              {quoteError ? (
-                <p className="text-red-600">{quoteError}</p>
-              ) : quote ? (
-                <div className="space-y-1">
-                  <div className="flex justify-between">
-                    <span>{plan.title}</span>
-                    <span>₹{quote.baseAmountInr.toLocaleString("en-IN")}</span>
-                  </div>
-                  {quote.travelFeeInr > 0 && (
-                    <div className="flex justify-between">
-                      <span>Travel fee (out of zone)</span>
-                      <span>₹{quote.travelFeeInr.toLocaleString("en-IN")}</span>
-                    </div>
-                  )}
-                  {quote.couponDiscountInr > 0 && (
-                    <div className="flex justify-between text-forest">
-                      <span>Coupon discount</span>
-                      <span>-₹{quote.couponDiscountInr.toLocaleString("en-IN")}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between border-t border-black/10 pt-1 font-semibold">
-                    <span>Total</span>
-                    <span>₹{quote.totalAmountInr.toLocaleString("en-IN")}</span>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-muted">Calculating price...</p>
-              )}
-            </div>
-
-            <div className="space-y-3 pt-1">
-              <label className="flex items-start gap-2 text-sm text-ink/80">
-                <input
-                  type="checkbox"
-                  checked={isAdult}
-                  onChange={(e) => setIsAdult(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-black/20"
-                />
-                I am 18 or older
-              </label>
-              <label className="flex items-start gap-2 text-sm text-ink/80">
-                <input
-                  type="checkbox"
-                  checked={agreedPolicy}
-                  onChange={(e) => setAgreedPolicy(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 rounded border-black/20"
-                />
-                I understand this is platonic companionship, not therapy, and I agree to the{" "}
-                <a href="/refund-policy" target="_blank" className="underline">
-                  Refund &amp; Cancellation Policy
-                </a>
-              </label>
-              {errors.consent && <p className="text-sm text-red-600">{errors.consent}</p>}
-            </div>
-
-            {formError && <p className="text-sm text-red-600">{formError}</p>}
-
-            <button
-              type="submit"
-              disabled={step === "submitting" || !quote}
-              className="btn-primary w-full"
-            >
-              {step === "submitting" ? "Sending request..." : "Send booking request"}
-            </button>
             <p className="text-center text-xs text-muted">
-              No payment now — we&apos;ll WhatsApp you a secure payment link to confirm.
+              Step {formStep === "details" ? "1" : "2"} of 2 — {formStep === "details" ? "Your details" : "Review & confirm"}
             </p>
+
+            {formStep === "details" ? (
+              <>
+                <div>
+                  <label className="label" htmlFor="co-fullName">
+                    Full name
+                  </label>
+                  <input
+                    id="co-fullName"
+                    className="input"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Your name"
+                  />
+                  {errors.fullName && <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>}
+                </div>
+
+                <div>
+                  <label className="label" htmlFor="co-whatsapp">
+                    WhatsApp number
+                  </label>
+                  <input
+                    id="co-whatsapp"
+                    className="input"
+                    value={whatsapp}
+                    onChange={(e) => setWhatsapp(e.target.value)}
+                    placeholder="10-digit mobile number"
+                    inputMode="numeric"
+                  />
+                  {errors.whatsapp && <p className="mt-1 text-sm text-red-600">{errors.whatsapp}</p>}
+                  <p className="mt-1 text-xs text-muted">
+                    We&apos;ll send your payment link to this number.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="label" htmlFor="co-email">
+                    Email (optional)
+                  </label>
+                  <input
+                    id="co-email"
+                    type="email"
+                    className="input"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                  />
+                  {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+                </div>
+
+                <div>
+                  <label className="label" htmlFor="co-area">
+                    Area
+                  </label>
+                  <select
+                    id="co-area"
+                    className="input"
+                    value={area}
+                    onChange={(e) => setArea(e.target.value)}
+                  >
+                    {zones.map((z) => (
+                      <option key={z.id} value={z.area_name}>
+                        {z.area_name}
+                        {!z.in_zone && z.travel_fee_inr > 0 ? ` (+₹${z.travel_fee_inr} travel)` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.area && <p className="mt-1 text-sm text-red-600">{errors.area}</p>}
+                </div>
+
+                <div>
+                  <label className="label" htmlFor="co-notes">
+                    Preferred date/time or notes (optional)
+                  </label>
+                  <textarea
+                    id="co-notes"
+                    className="input min-h-[70px]"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label className="label" htmlFor="co-coupon">
+                    Coupon code (optional)
+                  </label>
+                  <input
+                    id="co-coupon"
+                    className="input"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                    placeholder="e.g. FIRST50"
+                  />
+                </div>
+
+                <div className="rounded-xl bg-sand p-4 text-sm text-ink">
+                  {quoteError ? (
+                    <p className="text-red-600">{quoteError}</p>
+                  ) : quote ? (
+                    <div className="space-y-1">
+                      <div className="flex justify-between">
+                        <span>{plan.title}</span>
+                        <span>₹{quote.baseAmountInr.toLocaleString("en-IN")}</span>
+                      </div>
+                      {quote.travelFeeInr > 0 && (
+                        <div className="flex justify-between">
+                          <span>Travel fee (out of zone)</span>
+                          <span>₹{quote.travelFeeInr.toLocaleString("en-IN")}</span>
+                        </div>
+                      )}
+                      {quote.couponDiscountInr > 0 && (
+                        <div className="flex justify-between text-forest">
+                          <span>Coupon discount</span>
+                          <span>-₹{quote.couponDiscountInr.toLocaleString("en-IN")}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between border-t border-black/10 pt-1 font-semibold">
+                        <span>Total</span>
+                        <span>₹{quote.totalAmountInr.toLocaleString("en-IN")}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="animate-pulse space-y-2" aria-label="Calculating price">
+                      <div className="h-4 w-3/4 rounded bg-black/10" />
+                      <div className="h-4 w-1/2 rounded bg-black/10" />
+                      <div className="h-4 w-2/3 rounded bg-black/10" />
+                    </div>
+                  )}
+                </div>
+
+                <button type="submit" disabled={!quote} className="btn-primary w-full">
+                  Continue →
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="rounded-xl bg-sand p-4 text-sm text-ink">
+                  <div className="flex justify-between">
+                    <span>{fullName}</span>
+                    <span>{whatsapp}</span>
+                  </div>
+                  <div className="flex justify-between text-muted">
+                    <span>{plan.title}</span>
+                    <span>{area}</span>
+                  </div>
+                  {quote && (
+                    <div className="mt-2 flex justify-between border-t border-black/10 pt-2 text-base font-semibold">
+                      <span>Total (incl. travel fee)</span>
+                      <span>₹{quote.totalAmountInr.toLocaleString("en-IN")}</span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setFormStep("details")}
+                    className="mt-2 text-xs text-forest underline"
+                  >
+                    Edit details
+                  </button>
+                </div>
+
+                <div className="space-y-3 pt-1">
+                  <label className="flex items-start gap-2 text-sm text-ink/80">
+                    <input
+                      type="checkbox"
+                      checked={isAdult}
+                      onChange={(e) => setIsAdult(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-black/20"
+                    />
+                    I am 18 or older
+                  </label>
+                  <label className="flex items-start gap-2 text-sm text-ink/80">
+                    <input
+                      type="checkbox"
+                      checked={agreedPolicy}
+                      onChange={(e) => setAgreedPolicy(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-black/20"
+                    />
+                    I understand this is platonic companionship, not therapy, and I agree to the{" "}
+                    <a href="/refund-policy" target="_blank" className="underline">
+                      Refund &amp; Cancellation Policy
+                    </a>
+                  </label>
+                  {errors.consent && <p className="text-sm text-red-600">{errors.consent}</p>}
+                </div>
+
+                {formError && <p className="text-sm text-red-600">{formError}</p>}
+
+                <button
+                  type="submit"
+                  disabled={step === "submitting" || !quote}
+                  className="btn-primary w-full"
+                >
+                  {step === "submitting" ? "Sending request..." : "Send booking request"}
+                </button>
+                <p className="text-center text-xs text-muted">
+                  🔒 Secure payment by Razorpay · Full refund if cancelled 12+ hrs before
+                  <br />
+                  No payment now — we&apos;ll WhatsApp you a secure payment link to confirm.
+                </p>
+              </>
+            )}
           </form>
         )}
       </div>

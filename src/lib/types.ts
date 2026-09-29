@@ -22,6 +22,8 @@ export type PricingPlan = {
   visible: boolean;
   sort_order: number;
   calendly_link: string | null;
+  badge_text: string | null;
+  quiz_tags: string[];
   created_at: string;
 };
 
@@ -116,6 +118,44 @@ export type PaymentBooking = {
   razorpay_refund_id: string | null;
   refund_amount_inr: number | null;
   razorpay_payment_link_id: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  utm_term: string | null;
+  utm_content: string | null;
+  fbclid: string | null;
+  fbp: string | null;
+  fbc: string | null;
+  landing_page: string | null;
+  abandoned_reminder_sent_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type Review = {
+  id: string;
+  customer_first_name: string;
+  service_title: string;
+  rating: number;
+  review_text: string;
+  approved: boolean;
+  sort_order: number;
+  created_at: string;
+};
+
+export type SiteSettings = {
+  id: true;
+  founder_video_url: string | null;
+  founder_captions_url: string | null;
+  updated_at: string;
+};
+
+export type Attribution = {
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmTerm: string | null;
+  utmContent: string | null;
+  fbclid: string | null;
+  landingPage: string | null;
 };
