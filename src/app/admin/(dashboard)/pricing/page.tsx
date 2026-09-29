@@ -4,7 +4,17 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { PricingPlan } from "@/lib/types";
 
-const emptyForm = { id: "", title: "", duration: "", price_inr: "", description: "", sort_order: "0", calendly_link: "" };
+const emptyForm = {
+  id: "",
+  title: "",
+  duration: "",
+  price_inr: "",
+  description: "",
+  sort_order: "0",
+  calendly_link: "",
+  badge_text: "",
+  quiz_tags: "",
+};
 
 export default function AdminPricingPage() {
   const [plans, setPlans] = useState<PricingPlan[]>([]);
@@ -35,6 +45,8 @@ export default function AdminPricingPage() {
       description: p.description ?? "",
       sort_order: String(p.sort_order),
       calendly_link: p.calendly_link ?? "",
+      badge_text: p.badge_text ?? "",
+      quiz_tags: p.quiz_tags.join(", "),
     });
   }
 
@@ -51,6 +63,11 @@ export default function AdminPricingPage() {
       description: form.description.trim() || null,
       sort_order: Number(form.sort_order) || 0,
       calendly_link: form.calendly_link.trim() || null,
+      badge_text: form.badge_text.trim() || null,
+      quiz_tags: form.quiz_tags
+        .split(",")
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean),
     };
 
     if (form.id) {
@@ -170,6 +187,31 @@ export default function AdminPricingPage() {
             />
             <p className="mt-1 text-xs text-muted">
               Shown to customers on the payment success screen as &quot;Pick your slot&quot;.
+            </p>
+          </div>
+          <div>
+            <label className="label">Badge text (optional)</label>
+            <input
+              className="input"
+              value={form.badge_text}
+              onChange={(e) => setForm((f) => ({ ...f, badge_text: e.target.value }))}
+              placeholder="Most popular / Best value / Save ₹1,989"
+            />
+            <p className="mt-1 text-xs text-muted">
+              Shown as a pill on this plan&apos;s card. Leave blank for no badge.
+            </p>
+          </div>
+          <div>
+            <label className="label">Quiz tags (comma-separated, optional)</label>
+            <input
+              className="input"
+              value={form.quiz_tags}
+              onChange={(e) => setForm((f) => ({ ...f, quiz_tags: e.target.value }))}
+              placeholder="talk, today, call"
+            />
+            <p className="mt-1 text-xs text-muted">
+              Matches this plan to the homepage quiz. Tags: talk, move, explore, company, call,
+              in-person, today, week.
             </p>
           </div>
           <div className="flex gap-3">

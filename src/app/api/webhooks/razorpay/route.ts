@@ -3,8 +3,39 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { paymentProvider, sha256Hex, paiseToRupees } from "@/lib/payments";
 import { normalizeIndianMobile } from "@/lib/validation";
 import { sendPaymentConfirmationEmail, sendPaymentAlertEmail } from "@/lib/email";
+import { sendMetaEvent } from "@/lib/meta/capi";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PaymentBooking } from "@/lib/types";
+
+// Purchase only ever fires from here -- after Razorpay's own signed webhook
+// has confirmed money actually moved. There is no client-side Purchase event
+// anywhere in this codebase, by design: the customer pays on Razorpay's own
+// hosted page (payment link), never back on ours, so a browser-side fire
+// would either never happen or would have to be faked. CAPI-only is correct
+// and is Meta's own recommended pattern for exactly this "offline/redirect"
+// conversion shape.
+async function trackPurchase(booking: PaymentBooking) {
+  await sendMetaEvent({
+    eventName: "Purchase",
+    eventId: `purchase_${booking.id}`,
+    eventSourceUrl: booking.landing_page
+      ? `https://sitwithme.in${booking.landing_page}`
+      : "https://sitwithme.in",
+    userData: {
+      phone: booking.whatsapp,
+      email: booking.email,
+      fbp: booking.fbp,
+      fbc: booking.fbc,
+    },
+    customData: {
+      currency: booking.currency,
+      value: booking.total_amount_inr,
+      content_name: booking.pricing_title_snapshot,
+      content_ids: booking.pricing_id ? [booking.pricing_id] : undefined,
+      content_type: "product",
+    },
+  });
+}
 
 // Razorpay webhooks are the source of truth for payment state. Signature is
 // verified against the RAW request body (never the parsed JSON), and every
@@ -136,6 +167,7 @@ async function handlePaymentCaptured(
       totalAmountInr: finalBooking.total_amount_inr,
       bookingId: finalBooking.id,
     }),
+    trackPurchase(finalBooking),
   ]);
 }
 
@@ -233,6 +265,7 @@ async function handlePaymentLinkPaid(
       totalAmountInr: finalBooking.total_amount_inr,
       bookingId: finalBooking.id,
     }),
+    trackPurchase(finalBooking),
   ]);
 }
 

@@ -126,6 +126,8 @@ export async function sendPaymentConfirmationEmail(params: {
           `Service: ${params.serviceTitle}`,
           `Amount paid: ₹${params.totalAmountInr}`,
           ``,
+          `View your confirmation: https://sitwithme.in/thank-you/${params.bookingId}`,
+          ``,
           `Next step: pick your slot.`,
           params.calendlyLink ? params.calendlyLink : "We'll WhatsApp you shortly to schedule.",
           ``,
@@ -137,6 +139,51 @@ export async function sendPaymentConfirmationEmail(params: {
     });
   } catch {
     // Best-effort only - a failed email must never block a booking from being marked Paid.
+  }
+}
+
+// Sent once, ~30 minutes after a booking request is submitted, if it's still
+// Pending and we have an email on file. Deliberately does not touch `status`
+// -- see markAbandonedBookings in payment-actions.ts for why that has to stay
+// 'Pending' much longer, so a late real payment can still match the webhook.
+export async function sendAbandonedReminderEmail(params: {
+  toEmail: string;
+  fullName: string;
+  bookingId: string;
+  serviceTitle: string;
+  totalAmountInr: number;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+
+  const siteUrl = "https://sitwithme.in";
+
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "SIT WITH ME <onboarding@resend.dev>",
+        to: params.toEmail,
+        subject: `Still want to book your ${params.serviceTitle}?`,
+        text: [
+          `Hi ${params.fullName},`,
+          ``,
+          `You started a booking request for ${params.serviceTitle} (₹${params.totalAmountInr}) a little while ago — we haven't sent your payment link yet because we haven't heard back.`,
+          ``,
+          `Complete your booking: ${siteUrl}/complete-booking/${params.bookingId}`,
+          ``,
+          `No rush — this just keeps your request from falling through the cracks.`,
+          ``,
+          `- Team SIT WITH ME`,
+        ].join("\n"),
+      }),
+    });
+  } catch {
+    // Best-effort only.
   }
 }
 

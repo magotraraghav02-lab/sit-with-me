@@ -3,6 +3,22 @@
 import { useState } from "react";
 
 const FAQS = [
+  {
+    q: "Won't it be awkward?",
+    a: "It's normal to feel a little nervous before the first meetup — most people do. Our companions are easy to talk to and used to breaking the ice. It usually feels natural within the first few minutes.",
+  },
+  {
+    q: "What will we talk about?",
+    a: "Whatever you like — your day, a show you're watching, something on your mind, or nothing in particular. There's no script. If you'd rather do an activity than talk, that's fine too.",
+  },
+  {
+    q: "Is it safe?",
+    a: "Yes. We only meet in public places, use real names and verified faces, and you can end a meetup anytime. See the Safety section above for details.",
+  },
+  {
+    q: "What if I don't like it?",
+    a: "No pressure to rebook. If something felt off, tell us — we'll make it right or refund you per our cancellation policy.",
+  },
   { q: "Is this dating?", a: "No, strictly platonic." },
   { q: "Are you therapists?", a: "No, we're good listeners, not professionals." },
   { q: "Where do we meet?", a: "Public places only." },
